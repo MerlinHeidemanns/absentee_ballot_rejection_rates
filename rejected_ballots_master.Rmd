@@ -1,0 +1,253 @@
+---
+title: "rejected_ballots_master"
+output: pdf_document
+---
+
+```{r setup}
+library(tidyverse)
+library(DirichletReg)
+library(boot)
+library(gridExtra)
+```
+
+As the 2020 General Election approaches, some fear that the rejection of absentee ballots may determine the election, specifically in swing states. One quantity of interest is the expected number of rejected ballots as it determines the potential effect on the electoral outcome. 
+
+The naive approach involves estimating the product of the number of voters ($N$), the probability of requesting an absentee ballot ($\theta$), the probability of submitting a received absentee ballot ($\psi$), and the probability of having one's absentee ballot rejected ($\kappa$).
+
+$$
+p(\text{rejected ballots}|N, \theta, \psi, \kappa) \sim \sum_i p_i(N) * p_i(\theta) * p(\psi | \theta) * p(\kappa | \theta, \psi)
+$$
+
+Together with an assumption about the expected number of absentee voters, we can calculate the expected number of rejected votes given additional assumptions about turnout, the probability to submit an absentee vote, and to have one's absentee ballot rejected.
+
+Naturally, in the US context, missing data represents a problem such that we would make additional assumptions about the distribution of the missing data.
+
+### Motivation
+
+The approach above is naive. It does not consider varying rates of absentee ballot rejections among absentee voters. While rates vary, we know that absentee voters are primarily older and white. If the rate of absentee voters increases, the share of other socio-demographic groups will rise. If their rejection rates differ --- being either larger or smaller --- then the average rate at which ballots are being rejected will change as well.
+
+### Model
+
+While data on the number of rejected ballots exists at the county level, we do not know the personal characteristics of those whose absentee ballots are being rejected. That is, we face an ecological inference problem, wanting to make inference over the behavior of the individual while only having aggregate data. In regression terms we want to estimate
+
+$$
+y_{ij} = \alpha_j + \beta_j x_{ij} + \epsilon_{ij}
+$$
+
+but can only estimate 
+
+$$
+\bar y_j = \alpha_j + \beta_j \bar x_j
+$$
+
+where $x_{ij}$ is the characteristic of individual $i$ in the group $j$ we care about and $\bar x_j$ the averages we have access to.
+
+For binary data --- following Gelman et al. (2001) --- we can re-express this as
+
+$$
+\bar y_j = \beta_{j1} \bar x_j + \beta_{j2}(1 - \bar x_j)
+$$
+and fit
+
+$$
+\bar y_j = \beta_1 \bar x_j + \beta_2 (1 - \bar x_j) + \eta_j
+$$
+### Fake data and Stan model
+
+To start I simulate some fake data and fit the model using Stan. I start with the individuals ...
+
+```{r cache=TRUE}
+set.seed(11234)
+N <- 1e5
+J <- 2e2
+G <- 2
+pr_g <- rdirichlet(1, rep(10, G))
+pr_j <- rdirichlet(1, rep(10, J))
+g <- sample(seq(0, G - 1), N, replace = TRUE, prob = pr_g)
+j <- sample(seq(1, J), N, replace = TRUE, prob = pr_j)
+alpha_j    <- rnorm(J, 0.5, sd = 0)
+beta_j     <- matrix(rnorm(J, -0.7, 0), ncol = 1, nrow = J)
+epsilon_ij <- rnorm(N, 0, 0.2)
+y_star <- rep(NA, N)
+for (n in 1:N) y_star[n] <- inv.logit(alpha_j[j[n]] + beta_j[j[n]] * g[n] + epsilon_ij[n])
+y <- rbinom(N, 1, prob = y_star)
+cat("Mean of y", mean(y), "\n",
+    "alpha", mean(alpha_j) == max(alpha_j),"\n",
+    "beta" , mean(beta_j)  == max(beta_j))
+```
+... and then aggregate.
+```{r cache = TRUE}
+df <- data.frame(y = y, j = j, g = g) 
+df_bar <- df %>% 
+  mutate(g0 = ifelse(g == 0, 1, 0),
+         g1 = ifelse(g == 1, 1, 0)
+         ) %>%
+  group_by(j) %>%
+  summarize(y_trials = n(),
+            y_count = sum(y),
+            g0_bar = mean(g0),
+            g1_bar = mean(g1)
+            )
+print(as_tibble(df_bar))
+```
+
+Next I write some Stan code.
+
+```{r include=FALSE}
+model <- rstan::stan_model("code/stan/ecological_regression.stan")
+data <- list(
+  J = max(df_bar$j),
+  xbar_j1 = df_bar$g1_bar,
+  xbar_j2 = 1 - df_bar$g1_bar,
+  trials = df_bar$y_trials,
+  counts = df_bar$y_count
+)
+fit <- rstan::sampling(model, data, chains = 2)
+```
+
+and posterior predictive checks show that the model works.
+
+```{r}
+fit_beta       <- rstan::extract(fit, pars = "beta")[[1]]
+beta_alpha_hat <- fit_beta[,1]
+alpha_hat      <- fit_beta[,2]
+beta_hat       <- beta_alpha_hat - alpha_hat
+alpha = 0.5; bins = 40
+plt_alpha_hat <- ggplot() +
+  geom_histogram(aes(x = alpha_hat)) +
+  geom_vline(xintercept = mean(alpha_j)) +
+  theme_bw()
+plt_alpha_hat <- ggplot() +
+  geom_histogram(aes(x = beta_hat)) +
+  geom_vline(xintercept = mean(beta_j)) +
+  theme_bw()
+plt_pr_x1 <- ggplot() +
+  geom_histogram(aes(x = y_star[g == 1], fill = "blue", after_stat(density)), bins = bins, alpha = alpha) +
+  geom_histogram(aes(x = inv.logit(beta_alpha_hat), fill = "red", after_stat(density)), bins = bins, alpha = alpha) + 
+  theme_bw()+ 
+  scale_fill_manual(name = 'Kind', 
+         values =c('blue'='blue','red'='red'), labels = c('Data','PPD'))
+plt_pr_x0 <- ggplot() +
+  geom_histogram(aes(x = y_star[g == 0], fill = "blue", after_stat(density)), bins = bins, alpha = alpha) +
+  geom_histogram(aes(x = inv.logit(alpha_hat), fill = "red", after_stat(density)), bins = bins, alpha = alpha) + 
+  theme_bw() + 
+  scale_fill_manual(name = 'Kind', 
+         values =c('blue'='blue','red'='red'), labels = c('Data','PPD'))
+grid.arrange(plt_alpha_hat, plt_alpha_hat, plt_pr_x1, plt_pr_x0)
+# print("logit scale")
+# cat("alpha_hat", mean(alpha_hat), "\n",
+#     "beta_hat",  mean(beta_hat), "\n")
+# cat("alpha", mean(alpha_j),
+#     "beta", mean(beta_j))
+# cat("mean(y_star[g == 1])", mean(y_star[g == 1]), "\n",
+#     "mean(y_star[g == 0])", mean(y_star[g == 0]))
+# cat("mean(y_hat_star[g == 1])", mean(inv.logit(beta_alpha_hat)), "\n",
+#     "mean(y_hat_star[g == 0])", mean(inv.logit(alpha_hat)))
+# cat("sd(y_hat_star[g == 1])", sd(inv.logit(beta_alpha_hat)), "\n",
+#     "sd(y_hat_star[g == 0])", sd(inv.logit(alpha_hat)))
+```
+
+### More than two groups
+
+Later on when consider ethnic groups in the US, we are comparing more than two groups so we increase $G$.
+
+```{r cache=TRUE}
+set.seed(11234)
+N <- 1e5
+J <- 2e2
+G <- 5
+pr_g <- rdirichlet(1, rep(10, G))
+pr_j <- rdirichlet(1, rep(10, J))
+g <- sample(seq(0, G - 1), N, replace = TRUE, prob = pr_g)
+j <- sample(seq(1, J), N, replace = TRUE, prob = pr_j)
+alpha_j    <- rep(rnorm(1, 0, sd = 0.5), J)
+beta_j <- matrix(NA, ncol = G - 1, nrow = J)
+for (i in 1:G - 1) beta_j[, i] <- rep(rnorm(1, 0, 0.5))
+epsilon_ij <- rnorm(N, 0, 0.2)
+y_star <- rep(NA, N)
+for (n in 1:N) y_star[n] <- inv.logit(alpha_j[j[n]] + ifelse(g[n] != 0, beta_j[j[n],g[n]], 0) + epsilon_ij[n])
+y <- rbinom(N, 1, prob = y_star)
+cat("Mean of y", mean(y), "\n",
+    "alpha", mean(alpha_j) == max(alpha_j),"\n",
+    "beta" , mean(beta_j)  == max(beta_j))
+```
+```{r cache = TRUE}
+df <- data.frame(y = y, j = j, g = g) 
+df_bar <- df %>% 
+  mutate(g0 = ifelse(g == 0, 1, 0),
+         g1 = ifelse(g == 1, 1, 0),
+         g2 = ifelse(g == 2, 1, 0),
+         g3 = ifelse(g == 3, 1, 0),
+         g4 = ifelse(g == 4, 1, 0)
+         ) %>%
+  group_by(j) %>%
+  summarize(y_trials = n(),
+            y_count = sum(y),
+            g0_bar = mean(g0),
+            g1_bar = mean(g1),
+            g2_bar = mean(g2),
+            g3_bar = mean(g3),
+            g4_bar = mean(g4)
+            )
+print(as_tibble(df_bar))
+```
+
+```{r include=FALSE}
+model <- rstan::stan_model("code/stan/v2_ecological_regression_more_than_two_groups.stan")
+data <- list(
+  J = max(df_bar$j),
+  G = max(df$g) + 1,
+  xbar = df_bar[,c("g0_bar", "g1_bar", "g2_bar", "g3_bar", "g4_bar")],
+  trials = df_bar$y_trials,
+  counts = df_bar$y_count
+)
+fit <- rstan::sampling(model, data, chains = 2)
+```
+
+```{r}
+beta_hat <- rstan::extract(fit, pars = "beta")[[1]]
+# plots
+alpha = 0.5; bins = 60
+plt <- list()
+i = 0
+plt0 <- ggplot() +
+    geom_histogram(aes(x = y_star[g == 0], fill = "blue", after_stat(density)), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 1]), fill = "red", after_stat(density)), alpha = alpha, bins = bins) +
+    theme_bw()+ 
+    scale_fill_manual(name = 'Kind', 
+           values =c('blue'='blue','red'='red'), labels = c('Data','PPD'))
+plt1 <- ggplot() +
+    geom_histogram(aes(x = y_star[g == 1], fill = "blue", after_stat(density)), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 2]), fill = "red", after_stat(density)), alpha = alpha, bins = bins) +
+    theme_bw()+ 
+    scale_fill_manual(name = 'Kind', 
+           values =c('blue'='blue','red'='red'), labels = c('Data','PPD'))
+plt2 <- ggplot() +
+    geom_histogram(aes(x = y_star[g == 2], fill = "blue", after_stat(density)), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 3]), fill = "red", after_stat(density)), alpha = alpha, bins = bins) +
+    theme_bw()+ 
+    scale_fill_manual(name = 'Kind', 
+           values =c('blue'='blue','red'='red'), labels = c('Data','PPD'))
+plt3 <- ggplot() +
+    geom_histogram(aes(x = y_star[g == 3], fill = "blue", after_stat(density)), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 4]), fill = "red", after_stat(density)), alpha = alpha, bins = bins) +
+    theme_bw()+ 
+    scale_fill_manual(name = 'Kind', 
+           values =c('blue'='blue','red'='red'), labels = c('Data','PPD'))
+plt4 <- ggplot() +
+    geom_histogram(aes(x = y_star[g == 4], fill = "blue", after_stat(density)), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 5]), fill = "red", after_stat(density)), alpha = alpha, bins = bins) +
+    theme_bw()+ 
+    scale_fill_manual(name = 'Kind', 
+           values =c('blue'='blue','red'='red'), labels = c('Data','PPD'))
+
+grid.arrange(plt0, plt1, plt2, plt3,plt4)
+```
+
+
+
+
+
+
+
+

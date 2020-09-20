@@ -1,0 +1,53 @@
+﻿State,white,asian,black,hispanic,total,region_code,bea_region,region
+Nation,0.653,0.49,0.594,0.476,0.614,NA,NA,NA
+AL,0.57,NA,0.608,NA,0.574,5,Southeast Region,East South Central
+AK,0.687,NA,NA,NA,0.613,8,Far West Region,Pacific
+AZ,0.683,0.516,0.509,0.474,0.604,6,Southwest Region,Mountain
+AR,0.602,NA,0.588,NA,0.587,5,Southeast Region,West South Central
+CA,0.671,0.519,0.484,0.472,0.579,8,Far West Region,Pacific
+CO,0.73,0.334,0.741,0.556,0.695,7,Rocky Mountain Region,Mountain
+CT,0.678,NA,0.535,0.472,0.639,1,New England Region,New England
+DE,0.663,NA,0.565,NA,0.623,2,Mideast Region,South Atlantic
+DC,0.819,NA,0.68,NA,0.743,2,Mideast Region,South Atlantic
+FL,0.638,0.404,0.505,0.541,0.595,5,Southeast Region,South Atlantic
+GA,0.638,0.313,0.597,0.479,0.602,5,Southeast Region,South Atlantic
+HI,0.613,0.436,NA,NA,0.473,8,Far West Region,Pacific
+ID,0.651,NA,NA,0.429,0.621,7,Rocky Mountain Region,Mountain
+IL,0.678,0.513,0.587,0.492,0.638,3,Great Lakes Region,East North Central
+IN,0.594,NA,0.516,0.46,0.583,3,Great Lakes Region,East North Central
+IA,0.648,NA,NA,NA,0.634,4,Plains Region,West North Central
+KS,0.653,NA,0.445,0.489,0.613,4,Plains Region,West North Central
+KY,0.567,NA,0.691,NA,0.57,5,Southeast Region,East South Central
+LA,0.625,NA,0.613,0.679,0.616,5,Southeast Region,East South Central
+ME,0.733,NA,NA,NA,0.727,1,New England Region,New England
+MD,0.671,0.549,0.666,0.591,0.658,2,Mideast Region,South Atlantic
+MA,0.703,0.508,0.658,0.446,0.667,1,New England Region,New England
+MI,0.665,0.542,0.61,0.36,0.643,3,Great Lakes Region,East North Central
+MN,0.71,0.516,0.663,0.366,0.687,4,Plains Region,West North Central
+MS,0.677,NA,0.691,NA,0.677,5,Southeast Region,East South Central
+MO,0.658,NA,0.662,NA,0.648,4,Plains Region,West North Central
+MT,0.673,NA,NA,NA,0.659,7,Rocky Mountain Region,Mountain
+NE,0.703,NA,NA,NA,0.668,4,Plains Region,West North Central
+NV,0.632,0.444,0.651,0.566,0.605,8,Far West Region,Mountain
+NH,0.697,NA,NA,NA,0.69,1,New England Region,New England
+NJ,0.669,0.529,0.576,0.432,0.615,2,Mideast Region,Middle Atlantic
+NM,0.692,NA,NA,0.482,0.548,6,Southwest Region,Mountain
+NY,0.611,0.345,0.582,0.506,0.572,2,Mideast Region,Middle Atlantic
+NC,0.695,0.585,0.691,0.531,0.675,5,Southeast Region,South Atlantic
+ND,0.679,NA,NA,NA,0.642,4,Plains Region,West North Central
+OH,0.644,0.468,0.652,0.578,0.636,3,Great Lakes Region,East North Central
+OK,0.605,NA,0.573,0.334,0.566,6,Southwest Region,West South Central
+OR,0.688,NA,NA,0.549,0.663,8,Far West Region,Pacific
+PA,0.633,0.603,0.632,0.517,0.626,2,Mideast Region,Middle Atlantic
+RI,0.617,NA,NA,NA,0.606,1,New England Region,New England
+SC,0.615,NA,0.652,NA,0.621,5,Southeast Region,South Atlantic
+SD,0.619,NA,NA,NA,0.591,4,Plains Region,West North Central
+TN,0.568,NA,0.503,0.217,0.54,5,Southeast Region,East South Central
+TX,0.629,0.473,0.572,0.405,0.554,6,Southwest Region,West South Central
+UT,0.644,NA,NA,0.581,0.627,7,Rocky Mountain Region,Mountain
+VT,0.631,NA,NA,NA,0.625,1,New England Region,New England
+VA,0.696,0.699,0.649,0.642,0.682,5,Southeast Region,South Atlantic
+WA,0.717,0.69,0.426,0.472,0.663,8,Far West Region,Pacific
+WV,0.507,NA,NA,NA,0.508,5,Southeast Region,South Atlantic
+WI,0.74,NA,0.468,0.428,0.705,3,Great Lakes Region,East North Central
+WY,0.668,NA,NA,NA,0.648,7,Rocky Mountain Region,Mountain

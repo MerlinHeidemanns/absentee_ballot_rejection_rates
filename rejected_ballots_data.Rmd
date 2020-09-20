@@ -1,0 +1,288 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(DirichletReg)
+library(boot)
+library(gridExtra)
+```
+
+I start by loading the real data.
+
+```{r}
+df <- read.csv("data/eavs_merged_w_acs15_18_2020_08_20.csv") %>%
+  mutate(pr1 = as.numeric(as.character(pr1)),
+         pr1 = ifelse(pr1 >1 | pr1 < 0, NA, pr1),
+         pr2 = as.numeric(as.character(pr2)),
+         pr2 = ifelse(pr1 >1 | pr1 < 0, NA, pr2),
+         pr3 = as.numeric(as.character(pr3)),
+         pr3 = ifelse(pr1 >1 | pr1 < 0, NA, pr3),
+         rejected = as.numeric(as.character(rejected)),
+         mail_ballots_submitted = as.numeric(as.character(mail_ballots_submitted)),
+         transmitted = as.numeric(as.character(transmitted)))
+```
+
+To start simply, I compare rejection rates to the share of the population that is black
+
+```{r}
+pr1 <- ggplot(data = df, aes(x = black_percentage, y = as.numeric(as.character(pr1)))) + 
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ylim(c(0, 1)) +
+  labs(y = "Transmitted")
+pr2 <- ggplot(data = df, aes(x = black_percentage, y = as.numeric(as.character(pr2)))) + 
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ylim(c(0, 1)) +
+  labs(y = "Submitted")
+pr3 <- ggplot(data = df, aes(x = black_percentage, y = as.numeric(as.character(pr3)))) + 
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ylim(c(0, 1)) +
+  labs(y = "Rejected")
+grid.arrange(pr1, pr2, pr3, ncol = 3)
+```
+
+In counties in which the African-American population is larger, fewer ballots are requested by voters, fewer are being sent back, and more are getting rejected.
+
+We can dump this into the Stan model 
+
+```{r include = FALSE}
+model <- rstan::stan_model("code/stan/ecological_regression.stan")
+df_subset <- df %>% 
+  filter(!is.na(black_percentage),
+         !is.na(voting_age),
+         !is.na(transmitted),
+         as.numeric(as.character(transmitted)) <= as.numeric(as.character(voting_age)))
+data <- list(
+  J = nrow(df_subset),
+  xbar_j1 = df_subset$black_percentage,
+  xbar_j2 = 1 - df_subset$black_percentage,
+  trials = as.numeric(as.character(df_subset$voting_age)),
+  counts = as.numeric(as.character(df_subset$transmitted))
+)
+fit <- rstan::sampling(model, data, chains = 2)
+```
+
+and look at the probabilities
+
+```{r}
+fit_beta       <- rstan::extract(fit, pars = "beta")[[1]]
+beta_alpha_hat <- fit_beta[,1]
+alpha_hat      <- fit_beta[,2]
+beta_hat       <- beta_alpha_hat - alpha_hat
+ggplot() +
+  geom_histogram(aes(x = inv.logit(beta_alpha_hat), fill = "blue", after_stat(density)), bins = bins, alpha = alpha) +
+  geom_histogram(aes(x = inv.logit(alpha_hat), fill = "red", after_stat(density)), bins = bins, alpha = alpha) + 
+  theme_bw() + 
+  scale_fill_manual(name = 'Kind', 
+         values =c('blue'='blue','red'='red'), labels = c('African-American','Non-African-American'))
+```
+which suggests that given additional assumptions, African-Americans request absentee ballots at a lower rate than those who are not African-American.
+
+Now consider more than two ethnic groups.
+
+```{r}
+ggplot(data = df) + 
+  geom_point(aes(x = white_percentage, y = as.numeric(as.character(pr1))), color = "blue", size = 0.1) +
+  geom_point(aes(x = native_percentage, y = as.numeric(as.character(pr1))), color = "green", size = 0.1)
+```
+
+Some plots to check for non-linearities
+
+```{r}
+ggplot(df) +
+  stat_summary_bin(aes(x=white_percentage,y=pr1,
+                   color='red'), fun.y='mean', bins=19, size=2, geom='point') +
+  stat_summary_bin(aes(x=black_percentage,y=pr1,
+                   color='blue'), fun.y='mean', bins=19, size=2, geom='point') +
+  stat_summary_bin(aes(x=hispanic_percentage,y=pr1,
+                   color='green'), fun.y='mean', bins=19, size=2, geom='point') +
+  stat_summary_bin(aes(x=asian_percentage,y=pr1,
+                   color='orange'), fun.y='mean', bins=19, size=2, geom='point') +
+  scale_color_manual(name = 'Legend', 
+         values = alpha(c('red'='red','blue'='blue', 'green'='green', 'orange' = 'orange'), 0.5), labels = c('White','African-American', "Latino", 'Asian')) +
+  labs(x = "Share") + 
+  theme_bw()
+ggplot(df, aes(x=other_percentage,y=pr1)) +
+  geom_point(alpha = 0.4) +
+  stat_summary_bin(fun.y='median', bins=20,
+                   color='orange', size=2, geom='point')
+geom.
+```
+
+
+```{r}
+model <- rstan::stan_model("code/stan/v2_ecological_regression_more_than_two_groups.stan")
+df_subset <- df %>% 
+  filter(!is.na(white_percentage),
+         !is.na(black_percentage),
+         !is.na(hispanic_percentage),
+         !is.na(native_percentage),
+         !is.na(asian_percentage),
+         !is.na(pac_percentage),
+         !is.na(other_percentage),
+         !is.na(voting_age),
+         !is.na(transmitted),
+         as.numeric(as.character(transmitted)) <= as.numeric(as.character(voting_age)))
+data <- list(
+  J = nrow(df_subset),
+  G = 7,
+  xbar = df_subset[,c("white_percentage", "black_percentage", "hispanic_percentage", "native_percentage", "asian_percentage", "pac_percentage", "other_percentage")],
+  trials = as.numeric(as.character(df_subset$voting_age)),
+  counts = as.numeric(as.character(df_subset$transmitted))
+)
+fit <- rstan::sampling(model, data, chains = 2)
+```
+
+and plot again.
+
+```{r}
+beta_hat <- rstan::extract(fit, pars = "beta")[[1]]
+# plots
+alpha = 0.5; bins = 100
+ggplot() +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 1]), fill = "red"), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 2]), fill = "blue"), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 3]), fill = "green"), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 4]), fill = "grey"), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 5]), fill = "yellow"), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 6]), fill = "purple"), alpha = alpha, bins = bins) +
+    geom_histogram(aes(x = inv.logit(beta_hat[, 7]), fill = "orange"), alpha = alpha, bins = bins) +
+    theme_bw()+ 
+    scale_fill_manual(name = 'Kind', 
+           values =c('red'='red','blue'='blue', "green" = "green",
+                     "grey" = "grey", "yellow" = "yellow", "purple" = "purple",
+                     "orange" = "orange"), labels = c('white','black',
+                                                      'hispanic', 'native',
+                                                      'asian', 'pac', 'other'))
+```
+
+The graph looks kind of odd so
+
+```{r}
+lm(pr1~0 + white_percentage + black_percentage + hispanic_percentage + native_percentage + asian_percentage + pac_percentage + other_percentage, data = df, weights = voting_age)
+```
+Negative values are bad here.
+
+```{r model_fit include = FALSE}
+model <- rstan::stan_model("code/stan/v3_ecological_regression_prop.stan")
+df_subset <- df %>% 
+  filter(!State %in% c("CT", "HI")) %>%
+  filter(!is.na(white_percentage),
+         !is.na(black_percentage),
+         !is.na(hispanic_percentage),
+         !is.na(native_percentage),
+         !is.na(asian_percentage),
+         !is.na(pac_percentage),
+         !is.na(other_percentage),
+         !is.na(voting_age),
+         !is.na(transmitted),
+         !is.na(pr1),
+         !is.na(pr2),
+         !is.na(pr3),
+         !is.na(rejected),
+         !is.na(mail_ballots_submitted)) %>%
+  mutate(other_percentage = other_percentage + native_percentage + pac_percentage,
+         pr1 = transmitted/voting_age,
+         pr2 = mail_ballots_submitted/transmitted,
+         pr3 = rejected/mail_ballots_submitted)
+cat(sum(as.integer(df_subset$pr3 > 1)))
+data <- list(
+  J = nrow(df_subset),
+  G = 5,
+  x_bar = df_subset[,c("white_percentage", "black_percentage", "hispanic_percentage", "asian_percentage", "other_percentage")],
+  y_bar = df_subset[,c("pr1", "pr2", "pr3")]
+)
+fit <- rstan::sampling(model, data, chains = 2)
+```
+
+Checking posterior predictive distribution for random selection of counties
+
+```{r ppd_graphs echo=FALSE, include = TRUE}
+y_bar <- rstan::extract(fit, pars = "y_bar_hat")[[1]]
+sample_counties <- function(n, df, y_bar){
+  N <- nrow(df)
+  row_id <- sample(1:N, n, replace = FALSE)
+  # y, ybar, name, 
+  df_plt <- matrix(NA, nrow = 0, ncol = 7)
+  for (i in 1:n){
+    df_plt <- rbind(df_plt, cbind(df[row_id[i], c("JurisdictionName", "pr1", "pr2", "pr3")], y_bar[,row_id[i],]))
+  }
+  df_plt <- as.data.frame(df_plt)
+  colnames(df_plt) <- c("name", "pr1", "pr2", "pr3", "yhat1", "yhat2", "yhat3")
+  return(df_plt)
+}
+df_plt <- sample_counties(24, df_subset, y_bar)
+ggplot() + 
+  geom_histogram(data = df_plt, aes(x = yhat1)) + 
+  geom_vline(df_plt %>% group_by(name) %>% summarize(pr1 = mean(pr1)), mapping = aes(xintercept = pr1)) +
+  facet_wrap(~name)
+ggplot() + 
+  geom_histogram(data = df_plt, aes(x = yhat2)) + 
+  geom_vline(df_plt %>% group_by(name) %>% summarize(pr2 = mean(pr2)), mapping = aes(xintercept = pr2)) +
+  facet_wrap(~name)
+ggplot() + 
+  geom_histogram(data = df_plt, aes(x = yhat3)) + 
+  geom_vline(df_plt %>% group_by(name) %>% summarize(pr3 = mean(pr3)), mapping = aes(xintercept = pr3)) +
+  facet_wrap(~name)
+```
+
+```{r ppd_coverage include = TRUE, echo=FALSE}
+ybar <- rstan::extract(fit, pars = c("y_bar_hat"))[[1]]
+pr1_coverage <- sum(sapply(seq(1, nrow(df_subset)), function(x) 
+  as.integer(df_subset$pr1[x] > quantile(ybar[,x,1],c(0.025)) & df_subset$pr1[x] < quantile(ybar[,x,1], c(0.975)))))/nrow(df_subset)
+pr2_coverage <- sum(sapply(seq(1, nrow(df_subset)), function(x) 
+  as.integer(df_subset$pr2[x] > quantile(ybar[,x,2],c(0.025)) & df_subset$pr2[x] < quantile(ybar[,x,2], c(0.975)))))/nrow(df_subset)
+pr3_coverage <- sum(sapply(seq(1, nrow(df_subset)), function(x) 
+  as.integer(df_subset$pr3[x] > quantile(ybar[,x,3],c(0.025)) & df_subset$pr3[x] < quantile(ybar[,x,3], c(0.975)))))/nrow(df_subset)
+cat("95% coverage pr1", pr1_coverage, "\n",
+    "95% coverage pr2", pr2_coverage, "\n",
+    "95% coverage pr3", pr3_coverage)
+```
+
+```{r}
+categories <- c("white", "black", "latinx", "asian", "other")
+kind <- c("requesting", "submitting", "rejection")
+beta <- rstan::extract(fit, pars = "beta")[[1]]
+beta_mean <- apply(beta, MARGIN = c(2, 3), mean)
+beta_sd   <- apply(beta, MARGIN = c(2, 3), sd)
+plt_df <- matrix(NA, ncol = 4, nrow = 0)
+for (i in 1:3){
+  plt_df <- rbind(plt_df, cbind(categories, beta_mean[,i], beta_sd[,i], kind[i]))
+}
+plt_df <- as.data.frame(plt_df)
+colnames(plt_df) <- c("ethn", "mean_rate", "sd_rate", "kind")
+plt_df <- plt_df %>% 
+  mutate(mean_rate = round(as.numeric(as.character(mean_rate)), 5),
+         sd_rate   = round(as.numeric(as.character(sd_rate)), 5))
+ggplot(data = plt_df) + 
+  geom_point(aes(x = ethn, y = mean_rate)) + 
+  geom_errorbar(aes(x = ethn, y = mean_rate, ymax = mean_rate + sd_rate, ymin = mean_rate - sd_rate)) +
+  facet_wrap(~kind)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
