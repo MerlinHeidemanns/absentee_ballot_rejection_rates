@@ -24,11 +24,11 @@ There are different ways to look at the data.
 
 First, we can look at the shares of each ethnic group among voters, those who requested an absentee ballot, those who submitted an absentee ballot, and those who had their absentee ballot rejected. Minorities are overrepresented among rejected ballots.
 
-![m11_2020-09-02_group_shares_turnout_by_state](plots/m11_2020-09-02_group_shares_turnout_by_state.jpeg)
+![m11_2020-09-02_group_shares_turnout_by_state](plots/model_state_level_2020-09-21_group_shares_turnout_by_state.jpeg)
 
 The last graph makes a projection expected number of rejected absentee ballots at the national levels by ethnic group assuming that 70% of the population will request an absentee ballot. This assumes that the number of voters is the same as in 2016 as is state-level ethnic group level turnout.
 
-![m11_2020-09-02_n_rejected_national_turnout_by_state](plots/m11_2020-09-02_n_rejected_national_turnout_by_state.jpeg)
+![m11_2020-09-02_n_rejected_national_turnout_by_state](plots/model_state_level_2020-09-21_n_rejected_national_turnout_by_state.jpeg)
 
 [^1]: There are two alternative assumptions both of which are sufficient to interpret the parameters as individual-level probabilities. Either, first, the probability is independent of the geographic unit the individual lives in. Or, second, the individual probability is on average unaffected by the ethnic composition in the geographic unit or any other factor.
 
