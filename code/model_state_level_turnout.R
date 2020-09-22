@@ -161,7 +161,7 @@ ppd_submitted <- ggplot(data = ybar_submitted, aes(x = y, fill = kind)) +
   labs(title = "Submitted PPD") + 
   theme_bw() + 
   theme(axis.title.x = element_blank(), axis.title.y = element_blank())
-ggsave(paste0("plots/m11_", Sys.Date(), "_ppd_submitted_by_state.jpeg"), ppd_submitted)
+ggsave(paste0("plots/model_state_level_", Sys.Date(), "_ppd_submitted_by_state.jpeg"), ppd_submitted)
 ## rejected
 ybar_rejected <- as.data.frame(cbind(data_model$s, ybar[,3,]))
 names(ybar_rejected)[1] <- "group_id"
@@ -354,9 +354,9 @@ df_subset <- df_subset %>%
 #                  n_rejected_voters, white, black, latino, other
 df_sim <- matrix(NA, nrow = 0, ncol = 25)
 count = 0
-for (id in sample(1:3000, 6, replace = FALSE)){
+for (id in sample(1:3000, 50, replace = FALSE)){
   count = count + 1
-  print(count/6)
+  print(round(count/50, 3))
   for (i in 1:nrow(df_subset)) {
     n_absentee_voters = 0
     n_absentee_group = rep(0, 5)
