@@ -21,8 +21,9 @@ turn_numeric <- function(df, pos){
   return(df)
 }
 # data
-df <- read.csv("data/eavs_merged_w_acs15_18_2020_08_20.csv") %>%
-  mutate(pr1 = as.numeric(as.character(pr1)),
+df <- read.csv("data/eavs_merged_w_acs_2013_2018.csv") %>%
+  mutate(pr1 = ifelse(State %in% c("OR", "WA", "CO", "UT", "HI"), 1, pr1),
+         pr1 = as.numeric(as.character(pr1)),
          pr1 = ifelse(pr1 >1 | pr1 < 0, NA, pr1),
          pr2 = as.numeric(as.character(pr2)),
          pr2 = ifelse(pr1 >1 | pr1 < 0, NA, pr2),
@@ -34,7 +35,6 @@ df <- read.csv("data/eavs_merged_w_acs15_18_2020_08_20.csv") %>%
          white_count = as.numeric(as.character(white_count)),
          black_count = as.numeric(as.character(black_count)),
          hispanic_count = as.numeric(as.character(hispanic_count)),
-         other_percentage = as.numeric(as.character(other_percentage)),
          native_percentage = as.numeric(as.character(native_percentage)),
          pac_percentage = as.numeric(as.character(pac_percentage)),
          total_pop = as.numeric(as.character(total_pop)),
@@ -65,42 +65,52 @@ df_subset <- df %>%
          !is.na(native_percentage),
          !is.na(asian_percentage),
          !is.na(pac_percentage),
-         !is.na(other_percentage),
          !is.na(voting_age),
          !is.na(transmitted),
          !is.na(pr1),
          !is.na(pr2),
          !is.na(pr3),
          !is.na(rejected),
-         !is.na(mail_ballots_submitted)) %>%
-  mutate(other_percentage = other_percentage + native_percentage + pac_percentage,
+         !is.na(mail_ballots_submitted)) %>% 
+  mutate(other_percentage = native_percentage + pac_percentage,
          voters_white = white * white_count,
          voters_black = black * black_count,
          voters_hispanic = hispanic * hispanic_count,
          voters_asian    = asian * asian_count,
          other_count = total_pop - white_count - black_count - hispanic_count - asian_count,
          voters_other = mean_to * other_count,
-         white_voteshare = voters_white/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
-         black_voteshare = voters_black/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
-         hispanic_voteshare = voters_hispanic/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
-         asian_voteshare = voters_asian/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
-         other_voteshare = voters_other/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
+         white_voteshare = 
+           voters_white/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
+         black_voteshare = 
+           voters_black/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
+         hispanic_voteshare = 
+           voters_hispanic/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
+         asian_voteshare = 
+           voters_asian/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
+         other_voteshare = 
+           voters_other/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
          voters_white = floor(white_voteshare * total_votes_2016),
          voters_black = floor(black_voteshare * total_votes_2016),
          voters_hispanic = floor(hispanic_voteshare * total_votes_2016),
          voters_asian = floor(asian_voteshare * total_votes_2016),
          voters_other = floor(other_voteshare * total_votes_2016),
          voters_count = total_votes_2016,
-         pr1 = transmitted/(rejected + voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
-         pr1_prev = transmitted/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
+         pr1 = transmitted/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
+         pr1 = ifelse(State %in% c("OR", "WA", "CO", "UT", "HI"), 1, pr1),
          pr2 = mail_ballots_submitted/transmitted,
          pr3 = rejected/mail_ballots_submitted) %>%
-  filter((pr1 >= 0) & (pr1 <= 1))
+  filter((pr1 >= 0) & (pr1 <= 1)) 
 cat("pr1 out of bounds", sum(as.integer(df_subset$pr1 > 1 | df_subset$pr1 < 0)), "\n",
     "pr2 out of bounds", sum(as.integer(df_subset$pr2 > 1 | df_subset$pr2 < 0)), "\n",
     "pr3 out of bounds", sum(as.integer(df_subset$pr3 > 1 | df_subset$pr3 < 0))
 )
 print(df_subset[sample(1:nrow(df_subset)), 
-                c("JurisdictionName","voting_age_2","voters_white", "voters_black", 
+                c("JurisdictionName","voting_age","voters_white", "voters_black", 
                   "voters_hispanic", "voters_other", "voters_asian")])
+print(df_subset[sample(1:nrow(df_subset)), 
+                c("JurisdictionName","voting_age","white_voteshare", "black_voteshare", 
+                  "hispanic_voteshare", "asian_voteshare", "other_voteshare")])
+print(df_subset[sample(1:nrow(df_subset)), 
+                c("JurisdictionName","voting_age","white_count", "black_count", 
+                  "hispanic_count", "asian_count", "other_count")])
 

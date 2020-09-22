@@ -23,9 +23,10 @@ model {
   xbar2 = xbar2 ./ (xbar2 * ones_column * ones_row);
   xbar3 = (xbar2 .* beta[2, s]);
   xbar3 = xbar3 ./ (xbar3 * ones_column * ones_row);
-  for (j in 1:2) for (g in 1:G) beta[j, ,g] ~ normal(beta_mean[g, j], beta_sigma[g, j]);
+  for (j in 1:3) for (g in 1:G) beta[j, ,g] ~ normal(beta_mean[g, j], beta_sigma[g, j]);
   to_vector(beta_mean) ~ normal_lpdf(0, 0.5);
-  to_vector(beta_sigma) ~ normal_lpdf(0.25, 0.25);
+  to_vector(beta_sigma) ~ normal_lpdf(0, 0.5);
+  sigma ~ normal(0, 0.5);
   ybar[:,1] ~ normal(rows_dot_product(xbar1, beta[1,s]), sigma[1]);
   ybar[:,2] ~ normal(rows_dot_product(xbar2, beta[2,s]), sigma[2]);
   ybar[:,3] ~ normal(rows_dot_product(xbar3, beta[3,s]), sigma[3]);

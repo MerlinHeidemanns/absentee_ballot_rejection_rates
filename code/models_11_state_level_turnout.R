@@ -1,22 +1,6 @@
 source("code/load_model_data.R")
-turn_numeric <- function(df, pos){
-  for (i in 1:ncol(df)){
-    if (i != pos) {
-      df[, i] <- as.numeric(as.character(df[,i]))
-    }
-  }
-  return(df)
-}
-rnorm_truncated <- function(mu, sigma, lower, upper) {
-  p_lb <- pnorm(lower, mu, sigma)
-  p_ub <- pnorm(upper, mu, sigma)
-  u <- runif(length(mu), p_lb, p_ub)
-  y <- mu + sigma * qnorm(u)
-  return(y)
-}
-mu <- rep(0.5, 100)
-sigma <- 0.5
-
+source("code/functions.R")
+# descriptive viz
 req_sub <- ggplot(data = df_subset, aes(x = pr1, y = pr2)) + 
   geom_point(size = 0.2)
 sub_rej <- ggplot(data = df_subset, aes(x = pr2, y = pr3)) + 
@@ -24,19 +8,19 @@ sub_rej <- ggplot(data = df_subset, aes(x = pr2, y = pr3)) +
 req_rej <- ggplot(data = df_subset, aes(x = pr1, y = pr3)) + 
   geom_point(size = 0.2)
 grid.arrange(req_sub, sub_rej, req_rej)
-# model
+# data
 df_subset  <- df_subset %>% 
   group_by(State) %>%
   filter(n() > 2) %>%
   ungroup() %>%
   mutate(group_id = group_indices(., State))
-
 region_crosswalk <- df_subset %>% 
   distinct(State, group_id) %>% 
   arrange(group_id)
 write_rds(df_subset, path = "model_fits/fit_m11_states_df_subset.Rds")
-m11 <- rstan::stan_model("code/stan/v11_ecological_regression_prop.stan")
-data_m11 <- list(
+# model
+model <- rstan::stan_model("code/stan/v11_ecological_regression_prop.stan")
+data_model <- list(
   J = nrow(df_subset),
   G = 5,
   S = length(unique(df_subset$group_id)),
@@ -44,42 +28,44 @@ data_m11 <- list(
   xbar1 = df_subset[,c("white_voteshare", "black_voteshare", "hispanic_voteshare", "asian_voteshare",  "other_voteshare")],
   ybar = df_subset[,c("pr1", "pr2", "pr3")]
 )
-fit_m11_region <- rstan::sampling(m11, data_m11, chains = 4, cores = 4, warmup = 1500, iter = 2250)
-write_rds(fit_m11_region, path = "model_fits/fit_m11_states.Rds")
+fit <- rstan::sampling(model, data_model, chains = 4, cores = 4, warmup = 1500, iter = 2250)
+write_rds(fit, path = "model_fits/fit_m11_states.Rds")
+
+
 # prediction
-fit_m11_region <- read_rds("model_fits/fit_m11_states.Rds")
+fit <- read_rds("model_fits/fit_m11_states.Rds")
 df_subset <- read_rds('model_fits/fit_m11_states_df_subset.Rds')
 nsim = 100
-ybar <- array(NA, dim = c(data_m11$J, 3, nsim))
-beta_region <- rstan::extract(fit_m11_region, pars = "beta")[[1]]
-sigma <- rstan::extract(fit_m11_region, pars = "sigma")[[1]]
+ybar <- array(NA, dim = c(data_model$J, 3, nsim))
+beta_region <- rstan::extract(fit, pars = "beta")[[1]]
+sigma <- rstan::extract(fit, pars = "sigma")[[1]]
 counter = 0
 for (i in sample(1:3000, nsim,replace = FALSE)){
   counter = counter + 1
-  xbar2 <- beta_region[i, 1, data_m11$s,] * data_m11$xbar1
+  xbar2 <- beta_region[i, 1, data_model$s,] * data_model$xbar1
   xbar2 <- xbar2/rowSums(xbar2)
-  xbar3 <- beta_region[i, 2, data_m11$s,] * xbar2
+  xbar3 <- beta_region[i, 2, data_model$s,] * xbar2
   xbar3 <- xbar3/rowSums(xbar3)
-  ybar[,1, counter] <- rnorm_truncated(rowSums(beta_region[i, 1, data_m11$s,] * data_m11$xbar1), sigma[i, 1], 0, 1)
-  ybar[,2, counter] <- rnorm_truncated(rowSums(beta_region[i, 2, data_m11$s,] * xbar2), sigma[i, 2], 0, 1)
-  ybar[,3, counter] <- rnorm_truncated(rowSums(beta_region[i, 3, data_m11$s,] * xbar3), sigma[i, 3], 0, 1)
+  ybar[,1, counter] <- rnorm_truncated(rowSums(beta_region[i, 1, data_model$s,] * data_model$xbar1), sigma[i, 1], 0, 1)
+  ybar[,2, counter] <- rnorm_truncated(rowSums(beta_region[i, 2, data_model$s,] * xbar2), sigma[i, 2], 0, 1)
+  ybar[,3, counter] <- rnorm_truncated(rowSums(beta_region[i, 3, data_model$s,] * xbar3), sigma[i, 3], 0, 1)
 }
 # overlap
 # national
-coverage_025_975_requested <- sapply(1:data_m11$J, function(x) as.integer((data_m11$ybar[x, 1] > quantile(ybar[x, 1,], 0.025)) & (data_m11$ybar[x, 1] < quantile(ybar[x, 1,], 0.975)) ))
-coverage_025_975_submitted <- sapply(1:data_m11$J, function(x) as.integer((data_m11$ybar[x, 2] > quantile(ybar[x, 2,], 0.025)) & (data_m11$ybar[x, 2] < quantile(ybar[x, 2,], 0.975)) ))
-coverage_025_975_rejected <- sapply(1:data_m11$J, function(x) as.integer((data_m11$ybar[x, 3] > quantile(ybar[x, 3,], 0.025)) & (data_m11$ybar[x, 3] < quantile(ybar[x, 3,], 0.975)) ))
+coverage_025_975_requested <- sapply(1:data_model$J, function(x) as.integer((data_model$ybar[x, 1] > quantile(ybar[x, 1,], 0.025)) & (data_model$ybar[x, 1] < quantile(ybar[x, 1,], 0.975)) ))
+coverage_025_975_submitted <- sapply(1:data_model$J, function(x) as.integer((data_model$ybar[x, 2] > quantile(ybar[x, 2,], 0.025)) & (data_model$ybar[x, 2] < quantile(ybar[x, 2,], 0.975)) ))
+coverage_025_975_rejected <- sapply(1:data_model$J, function(x) as.integer((data_model$ybar[x, 3] > quantile(ybar[x, 3,], 0.025)) & (data_model$ybar[x, 3] < quantile(ybar[x, 3,], 0.975)) ))
 cat("95% interval coverage for requested:", round(mean(coverage_025_975_requested), 4), "\n",
     "95% interval coverage for submitted:", round(mean(coverage_025_975_submitted), 4), "\n",
     "95% interval coverage for rejected:", round(mean(coverage_025_975_rejected), 4))
-coverage_25_75_requested <- sapply(1:data_m11$J, function(x) as.integer((data_m11$ybar[x, 1] > quantile(ybar[x, 1,], 0.25)) & (data_m11$ybar[x, 1] < quantile(ybar[x, 1,], 0.75)) ))
-coverage_25_75_submitted <- sapply(1:data_m11$J, function(x) as.integer((data_m11$ybar[x, 2] > quantile(ybar[x, 2,], 0.25)) & (data_m11$ybar[x, 2] < quantile(ybar[x, 2,], 0.75)) ))
-coverage_25_75_rejected <- sapply(1:data_m11$J, function(x) as.integer((data_m11$ybar[x, 3] > quantile(ybar[x, 3,], 0.25)) & (data_m11$ybar[x, 3] < quantile(ybar[x, 3,], 0.75)) ))
+coverage_25_75_requested <- sapply(1:data_model$J, function(x) as.integer((data_model$ybar[x, 1] > quantile(ybar[x, 1,], 0.25)) & (data_model$ybar[x, 1] < quantile(ybar[x, 1,], 0.75)) ))
+coverage_25_75_submitted <- sapply(1:data_model$J, function(x) as.integer((data_model$ybar[x, 2] > quantile(ybar[x, 2,], 0.25)) & (data_model$ybar[x, 2] < quantile(ybar[x, 2,], 0.75)) ))
+coverage_25_75_rejected <- sapply(1:data_model$J, function(x) as.integer((data_model$ybar[x, 3] > quantile(ybar[x, 3,], 0.25)) & (data_model$ybar[x, 3] < quantile(ybar[x, 3,], 0.75)) ))
 cat("50% interval coverage for requested:", round(mean(coverage_25_75_requested), 4), "\n",
     "50% interval coverage for submitted:", round(mean(coverage_25_75_submitted), 4), "\n",
     "50% interval coverage for rejected:", round(mean(coverage_25_75_rejected), 4))
 # state-level
-coverage <- data.frame(State = region_crosswalk[as.integer(data_m11$s),"State"] %>% pull(State),
+coverage <- data.frame(State = region_crosswalk[as.integer(data_model$s),"State"] %>% pull(State),
                        requested = coverage_025_975_requested,
                        submitted = coverage_025_975_submitted,
                        rejected = coverage_025_975_rejected)
@@ -96,7 +82,7 @@ ggplot(coverage %>% mutate(State = factor(State, levels = coverage %>%
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90), axis.title.x = element_blank()) + 
   labs(y = "95% interval coverage")
-coverage <- data.frame(State = region_crosswalk[as.integer(data_m11$s),"State"] %>% pull(State),
+coverage <- data.frame(State = region_crosswalk[as.integer(data_model$s),"State"] %>% pull(State),
                        requested = coverage_25_75_requested,
                        submitted = coverage_25_75_submitted,
                        rejected = coverage_25_75_rejected)
@@ -115,7 +101,7 @@ ggplot(coverage %>% mutate(State = factor(State, levels = coverage %>%
   labs(y = "50% interval coverage")
 # predicted values
 ## requested
-ybar_requested <- as.data.frame(cbind(data_m11$s, ybar[,1,]))
+ybar_requested <- as.data.frame(cbind(data_model$s, ybar[,1,]))
 names(ybar_requested)[1] <- "group_id"
 ybar_requested <- ybar_requested %>% pivot_longer(cols = c(-group_id), values_to = "y", names_to = "sim", names_prefix = "V")
 ybar_requested$State <- region_crosswalk[ybar_requested$group_id,] %>% pull(State)
@@ -130,7 +116,7 @@ ppd_requested <- ggplot(data = ybar_requested, aes(x = y, fill = kind)) +
   theme(axis.title.x = element_blank(), axis.title.y = element_blank())
 ggsave(paste0("plots/m11_", Sys.Date(), "_ppd_requested_by_state.jpeg"), ppd_requested)
 ## submitted
-ybar_submitted <- as.data.frame(cbind(data_m11$s, ybar[,2,]))
+ybar_submitted <- as.data.frame(cbind(data_model$s, ybar[,2,]))
 names(ybar_submitted)[1] <- "group_id"
 ybar_submitted <- ybar_submitted %>% 
   pivot_longer(cols = c(-group_id), values_to = "y", names_to = "sim", names_prefix = "V")
@@ -146,7 +132,7 @@ ppd_submitted <- ggplot(data = ybar_submitted, aes(x = y, fill = kind)) +
   theme(axis.title.x = element_blank(), axis.title.y = element_blank())
 ggsave(paste0("plots/m11_", Sys.Date(), "_ppd_submitted_by_state.jpeg"), ppd_submitted)
 ## rejected
-ybar_rejected <- as.data.frame(cbind(data_m11$s, ybar[,3,]))
+ybar_rejected <- as.data.frame(cbind(data_model$s, ybar[,3,]))
 names(ybar_rejected)[1] <- "group_id"
 ybar_rejected <- ybar_rejected %>% 
   pivot_longer(cols = c(-group_id), values_to = "y", names_to = "sim", names_prefix = "V")
@@ -231,7 +217,7 @@ ggsave(paste0("plots/m11_", Sys.Date(), "_residuals_rejected.jpeg"), res3)
 cat <- df_subset %>% dplyr::select(group_id, State) %>% distinct()
 groups <- c("white", "black", "latinx", 'asian', "other")
 kind <- c("requested", "submitted", "rejected")
-beta_region <- rstan::extract(fit_m11_region, pars = "beta")[[1]]
+beta_region <- rstan::extract(fit, pars = "beta")[[1]]
 # [iter, kind, region, group]
 df_region_coef <- matrix(NA, nrow = 0, ncol = 6)
 for (i in 1:nrow(cat)){
@@ -326,7 +312,7 @@ ggsave(paste0("plots/m11_", Sys.Date(), "_pr_with_turnout_by_state.jpeg"), plt_g
 
 
 # voting power 
-beta_region <- rstan::extract(fit_m11_region, pars = "beta")[[1]]
+beta_region <- rstan::extract(fit, pars = "beta")[[1]]
 states <- df_subset %>% distinct(State) %>% pull(State)
 n_states <- length(states)
 df_subset <- df_subset %>%
@@ -382,9 +368,9 @@ colnames(df_sim) <- c("FIPSCode", "State", "voters_white", "voters_black", "vote
                       "n_submitted", "n_submitted_white", "n_submitted_black", "n_submitted_hispanic", "n_submitted_asian", "n_submitted_other",
                       "n_rejected", "n_rejected_white", "n_rejected_black", "n_rejected_hispanic", "n_rejected_asian", "n_rejected_other")
 df_sim$State <- region_crosswalk[as.integer(df_sim$State),"State"] %>% pull(State)
-write_rds(df_sim, path = "model_fits/fit_m11_region_simulated_70percent_turnout_by_state.Rds")
+write_rds(df_sim, path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
 # simulation plots
-df_sim <- read_rds(path = "model_fits/fit_m11_region_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(State, sim) %>% 
   summarise_all(list(sum = sum)) %>% 
@@ -434,7 +420,7 @@ plt_n_white_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, le
   labs(y = "Rejected absentee votes", title = "Rejected white absentee ballots (70% of 2016 VBM)")
 ggsave(paste0("plots/m11_", Sys.Date(), "_n_rejected_white_by_state_turnout_by_state.jpeg"), plt_n_white_rejected)
 ## nation ----
-df_sim <- read_rds(path = "model_fits/fit_m11_region_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(sim) %>% dplyr::select(-State) %>%
   summarise_all(list(sum = sum)) %>% 
@@ -489,7 +475,7 @@ plt_national <- ggplot(data = national_sim) +
   labs(y = "Rejected ballots", title = "N of rejected ballots (70% VBM)")
 ggsave(paste0("plots/m11_", Sys.Date(), "_n_rejected_national_turnout_by_state.jpeg"), plt_national)
 # change in support
-df_sim <- read_rds(path = "model_fits/fit_m11_region_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(State, sim) %>% 
   summarise_all(list(sum = sum)) %>% 
@@ -527,7 +513,7 @@ ggplot(data = df_sim_support %>% mutate(State = factor(State, levels = State[ord
   
 
 ## rates ----
-df_sim <- read_rds(path = "model_fits/fit_m11_region_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(State, sim) %>% 
   summarise_all(list(sum = sum)) %>% 

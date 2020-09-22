@@ -1,6 +1,16 @@
 library(tidyverse)
+# fun
+get_int <- function(x){
+  x <- as.numeric(as.character(x))
+  return(x)
+}
+get_int_NA0 <- function(x){
+  x <- as.numeric(as.character(x))
+  x <- ifelse(is.na(x), 0, x)
+  return(x)
+}
 # load data
-f_c <- read.csv("data/eavs_final_c_july23.csv") %>% 
+df_c <- read.csv("data/eavs_final_c_july23.csv") %>% 
     mutate(JurisdictionName = as.character(JurisdictionName) ) %>%
     filter(!State %in% c("VI", "PR", "GU")) %>%
     mutate(
@@ -36,17 +46,7 @@ for (i in colnames(df_vermont_collapsed)[3:20]){
   df_tmp[,i] <- df_vermont_collapsed[,i]
 }
 df_c <- rbind(df_c %>% filter(State != "VT"), df_tmp)
-# fun
-get_int <- function(x){
-  x <- as.numeric(as.character(x))
-  #x <- ifelse(is.na(x), 0, x)
-  return(x)
-}
-get_int_NA0 <- function(x){
-  x <- as.numeric(as.character(x))
-  x <- ifelse(is.na(x), 0, x)
-  return(x)
-}
+
 # adjust df_f
 df_f <- df_f %>%
   mutate(F1a = ifelse(FIPSCode == 501300000, 2284, F1a),
@@ -113,7 +113,7 @@ df_acs <- read.csv("data/acs_13_18_2.csv") %>%
             median_household_income   = mean(median_household_income, na.rm = TRUE),
             total_pop                 = floor(sum(total_pop, na.rm = TRUE)),
             pop_16                    = floor(sum(pop_16, na.rm = TRUE)),
-            white_count               = floor(sum(white_percentage, na.rm = TRUE)),
+            white_count               = floor(sum(white_count, na.rm = TRUE)),
             white_percentage          = mean(white_percentage, na.rm = TRUE),
             nonwhite_count            = floor(sum(nonwhite_count, na.rm = TRUE)),
             nonwhite_percentage       = mean(nonwhite_percentage, na.rm = TRUE),
@@ -132,18 +132,23 @@ df_acs <- read.csv("data/acs_13_18_2.csv") %>%
     WINNER = ifelse(dem_2016 > gop_2016, "Dem", "Rep")
   )
 
+# C4b = rejected
+# C4a = counted
+# C1b = Returned by voters and submitted for counting
+# F1d = Voted using a domestic civilian absentee ballot 
+# F1f = Voted at an early vote center
 eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
   mutate(
+    #rejected =
+    #  ifelse(is.na(C4a) | is.na(F1d) | is.na(F1f), C4b,
+    #         ifelse(C4a > (F1d + F1f), C1b - F1f, C4b)),
     rejected =
-      ifelse(!is.na(C4a) | !is.na(F1d) | !is.na(F1d) | is.na(C1a), C4b,
-             ifelse(C4a > (F1d + F1d), C1b - C4a, C4b)),
-    rejected =
-      ifelse(!is.na(C4b) | !is.na(C1b) | !is.na(C4a) | is.na(C1b), C4b,
+      ifelse(!is.na(C4b) & !is.na(C1b) & !is.na(C4a) & is.na(F1f), C4b,
              ifelse(C4b < (C1b - C4a), C1b - C4a, C4b)),
-    rejected = 
+    rejected =
       ifelse(!is.na(C1b) & !is.na(C4a) & is.na(rejected),
              C1b - C4a, rejected),
-    
+
   ) %>%
   rename(population = F1a, 
          submitted = C1b,
@@ -152,8 +157,8 @@ eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
   mutate(
     counted = submitted - rejected,
     FIPSCode = as.integer(floor(as.numeric(as.character(FIPSCode))/1e5))
-  ) %>%
-  select(population, transmitted, submitted, counted, JurisdictionName, 
+  ) %>% 
+  dplyr::select(population, transmitted, submitted, counted, JurisdictionName, 
          rejected, State, FIPSCode, population) %>%
   filter(State != "PR", State != "VI", State != "GU") %>% as_tibble()
 
@@ -164,7 +169,6 @@ eavs_wi <- eavs  %>%
                   gsub(pattern = ".*- ", "", x = JurisdictionName),
                   JurisdictionName)) %>%
   filter(State == "WI", JurisdictionName != "MULTIPLE COUNTIES") %>%
-  #mutate(FIPSCode = as.character(paste0("0", FIPSCode))) %>%
   group_by(State, JurisdictionName, FIPSCode) %>%
   summarize(population = sum(population, na.rm = TRUE),
             transmitted = sum(transmitted, na.rm = TRUE),
@@ -179,7 +183,7 @@ eavs_wi <- eavs_wi %>% mutate(
     ifelse(FIPSCode < 100, paste0("550", FIPSCode), paste0("55", FIPSCode))
   ))
 ) %>% 
-  select(population, transmitted, submitted, counted, JurisdictionName, 
+  dplyr::select(population, transmitted, submitted, counted, JurisdictionName, 
          rejected, State, FIPSCode, population)
 eavs <- bind_rows(eavs %>% filter(State != "WI"), eavs_wi)
 ## MA, NH
@@ -191,7 +195,7 @@ eavs_ma_nh <- eavs %>% filter(State == "MA" | State == "NH") %>%
             rejected = sum(rejected, na.rm = TRUE),
             counted = sum(counted, na.rm = TRUE)) %>%
   mutate(JurisdictionName = "Original data contained subcounty names.") %>%
-  select(population, transmitted, submitted, counted, JurisdictionName, 
+  dplyr::select(population, transmitted, submitted, counted, JurisdictionName, 
          rejected, State, FIPSCode, population)
 eavs <- bind_rows(eavs %>% filter(State != "MA", State != "NH"), eavs_ma_nh)
 
@@ -208,7 +212,7 @@ eavs_other <- eavs %>% filter(State == "CT" |
             rejected = sum(rejected, na.rm = TRUE),
             counted = sum(counted, na.rm = TRUE)) %>%
   mutate(JurisdictionName = "Original data contained subcounty names.") %>%
-  select(population, transmitted, submitted, counted, JurisdictionName, 
+  dplyr::select(population, transmitted, submitted, counted, JurisdictionName, 
          rejected, State, FIPSCode, population)
 eavs <- bind_rows(eavs %>% filter(State != "CT", 
                                   State != "IL", 
@@ -231,16 +235,15 @@ eavs <- eavs %>%
     #rejected = ifelse(State == "AL", NA, rejected),
     pr3      = ifelse(State == "AL", NA, pr3),
     rejected = ifelse(State == "AL", NA, rejected),
-    pr2      = ifelse(State %in% c("HI", "CT"), NA, pr2)
+    pr2      = ifelse(State %in% c("HI", "CT"), NA, pr2),
+    pr1      = transmitted/total_votes_2016
   ) 
 
 # submitted 
-# YATES COUNTY
 df_acs <- df_acs %>% mutate(
-  FIPSCode = ifelse(FIPSCode == 36123, 36122, FIPSCode)
+  FIPSCode = ifelse(FIPSCode == 36123, 36122, FIPSCode), # YATES COUNTY
+  FIPSCode = ifelse(FIPSCode == 46102, 46113, FIPSCode)  # Oglala Lakota County
 )
-
-
 
 
 merged <- merge(eavs, df_acs, by = "FIPSCode")
@@ -263,8 +266,6 @@ merged %>% filter(
     pr3      > 1 |
     pr3      < 0
 ) %>%
-  select(State, JurisdictionName, rejected, pr2, pr3)
+  dplyr::select(State, JurisdictionName, rejected, pr2, pr3)
 
-
-
-write.csv(merged,"data/eavs_merged_w_acs15_18_2020_08_20.csv", na="N/A")
+write.csv(merged,"data/eavs_merged_w_acs_2013_2018.csv", na="NA")
