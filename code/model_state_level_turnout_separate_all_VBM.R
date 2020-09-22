@@ -39,17 +39,18 @@ df_subset_xbar3 <- df_subset %>%
   filter(State %in% c("OR")) %>%
   mutate(group_id = max(df_subset_xbar2$group_id) + group_indices(., State))
 
+region_crosswalk <- rbind(
+  df_subset_xbar1 %>% distinct(State, group_id),
+  df_subset_xbar2 %>% distinct(State, group_id),
+  df_subset_xbar3 %>% distinct(State, group_id)
+) %>% arrange(group_id)
 
-%>%
-  ungroup() %>%
-  mutate(group_id = group_indices(., State))
-region_crosswalk <- df_subset %>% 
-  distinct(State, group_id) %>% 
-  arrange(group_id)
-write_rds(df_subset, path = "model_fits/fit_m11_states_df_subset.Rds")
+write_rds(df_subset_xbar1, path = "model_fits/fit_model_state_level_turnout_allVBM_xbar1.Rds")
+write_rds(df_subset_xbar2, path = "model_fits/fit_model_state_level_turnout_allVBM_xbar2.Rds")
+write_rds(df_subset_xbar3, path = "model_fits/fit_model_state_level_turnout_allVBM_xbar3.Rds")
 
 # model
-model <- rstan::stan_model("code/stan/v11_ecological_regression_prop.stan")
+model <- rstan::stan_model("code/stan/v11_ecological_regression_prop_w_allVBM.stan")
 data_model <- list(
   J = nrow(df_subset),
   G = 5,

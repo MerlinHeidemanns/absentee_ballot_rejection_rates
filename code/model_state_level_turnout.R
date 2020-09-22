@@ -7,8 +7,6 @@
 # Utah offers in person and vote by mail
 # Hawaii offers in person and vote by mail
 
-
-
 source("code/load_model_data.R")
 source("code/functions.R")
 # descriptive viz
@@ -49,7 +47,6 @@ write_rds(fit, path = "model_fits/fit_m11_states.Rds")
 
 
 # prediction
-# create posterior compositions of the groups of those who requested and submitted absentee ballots
 fit <- read_rds("model_fits/fit_m11_states.Rds")
 df_subset <- read_rds('model_fits/fit_m11_states_df_subset.Rds')
 nsim = 100
@@ -57,16 +54,6 @@ ybar <- array(NA, dim = c(data_model$J, 3, nsim))
 beta_region <- rstan::extract(fit, pars = "beta")[[1]]
 sigma <- rstan::extract(fit, pars = "sigma")[[1]]
 counter = 0
-# for (i in sample(1:3000, nsim,replace = FALSE)){
-#   counter = counter + 1
-#   xbar2 <- beta_region[i, 1, data_model$s,] * data_model$xbar1
-#   xbar2 <- xbar2/rowSums(xbar2)
-#   xbar3 <- beta_region[i, 2, data_model$s,] * xbar2
-#   xbar3 <- xbar3/rowSums(xbar3)
-#   ybar[,1, counter] <- rnorm_truncated(rowSums(beta_region[i, 1, data_model$s,] * data_model$xbar1), sigma[i, 1], 0, 1)
-#   ybar[,2, counter] <- rnorm_truncated(rowSums(beta_region[i, 2, data_model$s,] * xbar2), sigma[i, 2], 0, 1)
-#   ybar[,3, counter] <- rnorm_truncated(rowSums(beta_region[i, 3, data_model$s,] * xbar3), sigma[i, 3], 0, 1)
-# }
 for (i in sample(1:3000, nsim,replace = FALSE)){
   counter = counter + 1
   xbar2 <- beta_region[i, 1, data_model$s,] * data_model$xbar1
