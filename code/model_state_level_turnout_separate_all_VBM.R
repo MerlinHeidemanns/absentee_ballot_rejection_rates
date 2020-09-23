@@ -38,6 +38,9 @@ df_subset_xbar2 <- df_subset %>%
 df_subset_xbar3 <- df_subset %>% 
   filter(State %in% c("OR")) %>%
   mutate(group_id = max(df_subset_xbar2$group_id) + group_indices(., State))
+df_subset <- rbind(df_subset_xbar1,
+                   df_subset_xbar2,
+                   df_subset_xbar3)
 
 region_crosswalk <- rbind(
   df_subset_xbar1 %>% distinct(State, group_id),
@@ -51,25 +54,63 @@ write_rds(df_subset_xbar3, path = "model_fits/fit_model_state_level_turnout_allV
 
 # model
 model <- rstan::stan_model("code/stan/v11_ecological_regression_prop_w_allVBM.stan")
+
+J <- c(nrow(df_subset_xbar1), 
+       nrow(df_subset_xbar2), 
+       nrow(df_subset_xbar3))
+G <- 5
+S <- c(length(unique(df_subset_xbar1$group_id)),
+       length(unique(df_subset_xbar1$group_id)) + length(unique(df_subset_xbar2$group_id)),
+       length(unique(df_subset_xbar1$group_id)) + length(unique(df_subset_xbar2$group_id)) + length(unique(df_subset_xbar3$group_id))
+       )
+s1 <- df_subset_xbar1$group_id
+s2 <- c(df_subset_xbar1$group_id, df_subset_xbar2$group_id)
+s3 <- c(df_subset_xbar1$group_id, df_subset_xbar2$group_id, df_subset_xbar3$group_id)
+xbar1 <- df_subset_xbar1[,c("white_voteshare", "black_voteshare", "hispanic_voteshare", "asian_voteshare",  "other_voteshare")]
+xbar2_add <- df_subset_xbar2[,c("white_voteshare", "black_voteshare", "hispanic_voteshare", "asian_voteshare",  "other_voteshare")]
+xbar3_add <- df_subset_xbar3[,c("white_voteshare", "black_voteshare", "hispanic_voteshare", "asian_voteshare",  "other_voteshare")]
+ybar1 <- df_subset_xbar1[, c("pr1")] %>% pull(pr1)
+ybar2 <- rbind(df_subset_xbar1[, c("pr2")], df_subset_xbar2[, c("pr2")]) %>% pull(pr2)
+ybar3 <- rbind(df_subset_xbar1[, c("pr3")], 
+               df_subset_xbar2[, c("pr3")], 
+               df_subset_xbar3[, c("pr3")]) %>% pull(pr3)
 data_model <- list(
-  J = nrow(df_subset),
-  G = 5,
-  S = length(unique(df_subset$group_id)),
-  s = df_subset$group_id,
-  xbar1 = df_subset[,c("white_voteshare", "black_voteshare", "hispanic_voteshare", "asian_voteshare",  "other_voteshare")],
-  ybar = df_subset[,c("pr1", "pr2", "pr3")]
+  J = J,
+  G = G,
+  S = S,
+  s1 = s1,
+  s2 = s2,
+  s3 = s3,
+  xbar1 = xbar1,
+  xbar2_add = xbar2_add,
+  xbar3_add = xbar3_add,
+  ybar1 = ybar1,
+  ybar2 = ybar2,
+  ybar3 = ybar3
 )
 fit <- rstan::sampling(model, data_model, chains = 4, cores = 4, warmup = 1500, iter = 2250)
-write_rds(fit, path = "model_fits/fit_m11_states.Rds")
+write_rds(fit, path = "model_fits/fit_model_state_level_turnout_allVBM.Rds")
 
 
 # prediction
 # create posterior compositions of the groups of those who requested and submitted absentee ballots
-fit <- read_rds("model_fits/fit_m11_states.Rds")
-df_subset <- read_rds('model_fits/fit_m11_states_df_subset.Rds')
+fit <- read_rds("model_fits/fit_model_state_level_turnout_allVBM.Rds")
+df_subset_xbar1 <- read_rds(path = "model_fits/fit_model_state_level_turnout_allVBM_xbar1.Rds")
+df_subset_xbar2 <- read_rds(path = "model_fits/fit_model_state_level_turnout_allVBM_xbar2.Rds")
+df_subset_xbar3 <- read_rds(path = "model_fits/fit_model_state_level_turnout_allVBM_xbar3.Rds")
+
 nsim = 100
-ybar <- array(NA, dim = c(data_model$J, 3, nsim))
-beta_region <- rstan::extract(fit, pars = "beta")[[1]]
+ybar1 <- matrix(NA, nrow = data_model$J[1], ncol = nsim))
+ybar2 <- matrix(NA, nrow = data_model$J[2], ncol = nsim))
+ybar3 <- matrix(NA, nrow = data_model$J[3], ncol = nsim))
+beta_1 <- rstan::extract(fit, pars = "beta1")[[1]]
+beta_2 <- rstan::extract(fit, pars = "beta2")[[1]]
+beta_3 <- rstan::extract(fit, pars = "beta3")[[1]]
+beta_region <- array(1, dim = c(3000, 3, 46, 5))
+beta_region[,1,1:42,] <- beta_1
+beta_region[,2,1:45,] <- beta_2
+beta_region[,3,1:46,] <- beta_3
+
 sigma <- rstan::extract(fit, pars = "sigma")[[1]]
 counter = 0
 # for (i in sample(1:3000, nsim,replace = FALSE)){
@@ -263,7 +304,7 @@ ggsave(paste0("plots/model_state_level_", Sys.Date(), "_residuals_rejected.jpeg"
 cat <- df_subset %>% dplyr::select(group_id, State) %>% distinct()
 groups <- c("white", "black", "latinx", 'asian', "other")
 kind <- c("requested", "submitted", "rejected")
-beta_region <- rstan::extract(fit, pars = "beta")[[1]]
+#beta_region <- rstan::extract(fit, pars = "beta")[[1]]
 # [iter, kind, region, group]
 df_region_coef <- matrix(NA, nrow = 0, ncol = 6)
 for (i in 1:nrow(cat)){
@@ -353,12 +394,19 @@ coef_plot_region_rejected <- ggplot(data = df_region_coef %>%
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 90), axis.title.x = element_blank(), legend.title = element_blank()) + 
   labs(y = "Rejected")
 plt_grid <- grid.arrange(coef_plot_region_requested, coef_plot_region_submitted, coef_plot_region_rejected, ncol = 1)
-ggsave(paste0("plots/model_state_level_", Sys.Date(), "_pr_with_turnout_by_state.jpeg"), plt_grid)
+ggsave(paste0("plots/model_state_level_allVBM", Sys.Date(), "_pr_with_turnout_by_state.jpeg"), plt_grid)
 
 
 
 # voting power 
-beta_region <- rstan::extract(fit, pars = "beta")[[1]]
+beta_1 <- rstan::extract(fit, pars = "beta1")[[1]]
+beta_2 <- rstan::extract(fit, pars = "beta2")[[1]]
+beta_3 <- rstan::extract(fit, pars = "beta3")[[1]]
+beta_region <- array(1, dim = c(3000, 3, 46, 5))
+beta_region[,1,1:42,] <- beta_1
+beta_region[,2,1:45,] <- beta_2
+beta_region[,3,1:46,] <- beta_3
+
 states <- df_subset %>% distinct(State) %>% pull(State)
 n_states <- length(states)
 df_subset <- df_subset %>%
@@ -367,6 +415,7 @@ df_subset <- df_subset %>%
 # FIPSCode, State, n_absentee_voters, white, black, latino, other,
 #                  n_submitted_voters, white, black, latino,other
 #                  n_rejected_voters, white, black, latino, other
+df_subset <- df_subset %>% arrange(group_id)
 df_sim <- matrix(NA, nrow = 0, ncol = 25)
 count = 0
 for (id in sample(1:3000, 6, replace = FALSE)){
@@ -377,18 +426,28 @@ for (id in sample(1:3000, 6, replace = FALSE)){
     n_absentee_group = rep(0, 5)
     n_voters = df_subset[i, "voters_count"]
     i_region = as.integer(df_subset[i, "group_id"])
-    n_limit = floor(n_voters * .7)
-    while (n_absentee_voters < n_limit) {
-      n_group <- df_subset[i, c("voters_white", "voters_black", "voters_hispanic", "voters_asian", "voters_other")] - n_absentee_group
-      val = sapply(1:5, function(x) rbinom(1, as.integer(n_group[x]), prob = as.numeric(beta_region[id, 1, i_region, x])))
-      n_absentee_group = n_absentee_group + val
+    print(i_region)
+    if (i_region %in% seq(43, 46)){
+      n_absentee_group = as.integer(df_subset[i, c("voters_white", "voters_black", "voters_hispanic", "voters_asian", "voters_other")])
       n_absentee_voters = sum(n_absentee_group)
+    } else {
+      n_limit = floor(n_voters * .7)
+      while (n_absentee_voters < n_limit) {
+        n_group <- df_subset[i, c("voters_white", "voters_black", "voters_hispanic", "voters_asian", "voters_other")] - n_absentee_group
+        val = sapply(1:5, function(x) rbinom(1, as.integer(n_group[x]), prob = as.numeric(beta_region[id, 1, i_region, x])))
+        n_absentee_group = n_absentee_group + val
+        n_absentee_voters = sum(n_absentee_group)
+      }
     }
-    n_submitting_voters = 0
-    n_submitting_group = rep(0, 4)
-    n_submitting_group = sapply(1:5, function(x) rbinom(1, 
-                                                        n_absentee_group[x], 
-                                                        prob = as.numeric(beta_region[id, 2, i_region, x])))
+    if (i_region == 46){
+      n_submitting_group = df_subset[i, c("voters_white", "voters_black", "voters_hispanic", "voters_asian", "voters_other")]
+    } else {
+      n_submitting_voters = 0
+      n_submitting_group = rep(0, 5)
+      n_submitting_group = sapply(1:5, function(x) rbinom(1, 
+                                                          n_absentee_group[x], 
+                                                          prob = as.numeric(beta_region[id, 2, i_region, x])))
+    }
     n_submitting_voters = sum(n_submitting_group)
     n_rejected_voters = 0
     n_rejected_group = rep(0, 5)
@@ -414,7 +473,7 @@ colnames(df_sim) <- c("FIPSCode", "State", "voters_white", "voters_black", "vote
                       "n_submitted", "n_submitted_white", "n_submitted_black", "n_submitted_hispanic", "n_submitted_asian", "n_submitted_other",
                       "n_rejected", "n_rejected_white", "n_rejected_black", "n_rejected_hispanic", "n_rejected_asian", "n_rejected_other")
 df_sim$State <- region_crosswalk[as.integer(df_sim$State),"State"] %>% pull(State)
-write_rds(df_sim, path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
+write_rds(df_sim, path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 # simulation plots
 df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
