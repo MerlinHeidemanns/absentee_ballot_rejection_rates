@@ -139,16 +139,17 @@ df_acs <- read.csv("data/acs_13_18_2.csv") %>%
 # F1f = Voted at an early vote center
 eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
   mutate(
-    #rejected =
-    #  ifelse(is.na(C4a) | is.na(F1d) | is.na(F1f), C4b,
-    #         ifelse(C4a > (F1d + F1f), C1b - F1f, C4b)),
+    rejected = C4b, 
     rejected =
-      ifelse(!is.na(C4b) & !is.na(C1b) & !is.na(C4a) & is.na(F1f), C4b,
-             ifelse(C4b < (C1b - C4a), C1b - C4a, C4b)),
+      ifelse(is.na(C4a) | is.na(F1d) | is.na(F1d) | is.na(C1a), rejected,
+             ifelse(C4a > (F1d + F1d), C1b - C4a, rejected)),
     rejected =
-      ifelse(!is.na(C1b) & !is.na(C4a) & is.na(rejected),
-             C1b - C4a, rejected),
-
+      ifelse(is.na(C4b) | is.na(C1b) | is.na(C4a) | is.na(C1b), rejected,
+             ifelse(C4b < (C1b - C4a), C1b - C4a, rejected)),
+    rejected = ifelse(is.na(rejected), C4b, rejected),
+    rejected =
+      ifelse(!is.na(C1b) & !is.na(C4b) & is.na(rejected),
+             C1b - C4a, rejected)
   ) %>%
   rename(population = F1a, 
          submitted = C1b,
