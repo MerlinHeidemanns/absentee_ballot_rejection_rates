@@ -11,6 +11,8 @@
 
 source("code/load_model_data.R")
 source("code/functions.R")
+
+model_prefix <- "model_state_level_allVBM"
 # descriptive viz
 req_sub <- ggplot(data = df_subset, aes(x = pr1, y = pr2)) + 
   geom_point(size = 0.2)
@@ -88,7 +90,7 @@ data_model <- list(
   ybar2 = ybar2,
   ybar3 = ybar3
 )
-fit <- rstan::sampling(model, data_model, chains = 4, cores = 4, warmup = 1500, iter = 2250)
+fit <- rstan::sampling(model, data_model, chains = 4, cores = 4, warmup = 2000, iter = 2500)
 write_rds(fit, path = "model_fits/fit_model_state_level_turnout_allVBM.Rds")
 
 
@@ -106,7 +108,7 @@ ybar3 <- matrix(NA, nrow = data_model$J[3], ncol = nsim))
 beta_1 <- rstan::extract(fit, pars = "beta1")[[1]]
 beta_2 <- rstan::extract(fit, pars = "beta2")[[1]]
 beta_3 <- rstan::extract(fit, pars = "beta3")[[1]]
-beta_region <- array(1, dim = c(3000, 3, 46, 5))
+beta_region <- array(1, dim = c(2000, 3, 46, 5))
 beta_region[,1,1:42,] <- beta_1
 beta_region[,2,1:45,] <- beta_2
 beta_region[,3,1:46,] <- beta_3
@@ -394,7 +396,7 @@ coef_plot_region_rejected <- ggplot(data = df_region_coef %>%
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 90), axis.title.x = element_blank(), legend.title = element_blank()) + 
   labs(y = "Rejected")
 plt_grid <- grid.arrange(coef_plot_region_requested, coef_plot_region_submitted, coef_plot_region_rejected, ncol = 1)
-ggsave(paste0("plots/model_state_level_allVBM", Sys.Date(), "_pr_with_turnout_by_state.jpeg"), plt_grid)
+ggsave(paste0("plots/", model_prefix, Sys.Date(), "_pr_with_turnout_by_state.jpeg"), plt_grid)
 
 
 
@@ -402,7 +404,7 @@ ggsave(paste0("plots/model_state_level_allVBM", Sys.Date(), "_pr_with_turnout_by
 beta_1 <- rstan::extract(fit, pars = "beta1")[[1]]
 beta_2 <- rstan::extract(fit, pars = "beta2")[[1]]
 beta_3 <- rstan::extract(fit, pars = "beta3")[[1]]
-beta_region <- array(1, dim = c(3000, 3, 46, 5))
+beta_region <- array(1, dim = c(2000, 3, 46, 5))
 beta_region[,1,1:42,] <- beta_1
 beta_region[,2,1:45,] <- beta_2
 beta_region[,3,1:46,] <- beta_3
@@ -418,16 +420,15 @@ df_subset <- df_subset %>%
 df_subset <- df_subset %>% arrange(group_id)
 df_sim <- matrix(NA, nrow = 0, ncol = 25)
 count = 0
-for (id in sample(1:3000, 6, replace = FALSE)){
+for (id in sample(1:2000, 20, replace = FALSE)){
   count = count + 1
-  print(count/6)
+  print(count/20)
   for (i in 1:nrow(df_subset)) {
     n_absentee_voters = 0
     n_absentee_group = rep(0, 5)
     n_voters = df_subset[i, "voters_count"]
     i_region = as.integer(df_subset[i, "group_id"])
-    print(i_region)
-    if (i_region %in% seq(43, 46)){
+    if (region_crosswalk[i_region, "State"] %in% c("WA", "CA", "OR", "UT", "CO", "VT", "NJ", "HI" )){
       n_absentee_group = as.integer(df_subset[i, c("voters_white", "voters_black", "voters_hispanic", "voters_asian", "voters_other")])
       n_absentee_voters = sum(n_absentee_group)
     } else {
@@ -440,7 +441,7 @@ for (id in sample(1:3000, 6, replace = FALSE)){
       }
     }
     if (i_region == 46){
-      n_submitting_group = df_subset[i, c("voters_white", "voters_black", "voters_hispanic", "voters_asian", "voters_other")]
+      n_submitting_group = as.integer(df_subset[i, c("voters_white", "voters_black", "voters_hispanic", "voters_asian", "voters_other")])
     } else {
       n_submitting_voters = 0
       n_submitting_group = rep(0, 5)
@@ -475,13 +476,14 @@ colnames(df_sim) <- c("FIPSCode", "State", "voters_white", "voters_black", "vote
 df_sim$State <- region_crosswalk[as.integer(df_sim$State),"State"] %>% pull(State)
 write_rds(df_sim, path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 # simulation plots
-df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(State, sim) %>% 
   summarise_all(list(sum = sum)) %>% 
   ungroup() %>% 
   group_by(State) %>%
-  summarize_all(list(mean = mean, sd = sd))
+  summarize_all(list(~ mean(.), ~ sd(.))) # %>% 
+  #write.csv(., file = paste0(model_prefix, "_estimates_by_state_group_updated.csv"))
 ## black ----
 plt_n_black_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_black_sum_mean)]))) + 
   geom_point(aes(x = State, y = n_rejected_black_sum_mean)) + 
@@ -491,7 +493,7 @@ plt_n_black_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, le
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected Black absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/model_state_level_", Sys.Date(), "_n_rejected_black_by_state_turnout_by_state.jpeg"), plt_n_black_rejected)
+ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_black_by_state_turnout_by_state.jpeg"), plt_n_black_rejected)
 ## hispanic ----
 plt_n_latinx_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_hispanic_sum_mean)]))) + 
   geom_point(aes(x = State, y = n_rejected_hispanic_sum_mean)) + 
@@ -501,7 +503,7 @@ plt_n_latinx_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, l
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected Latinx absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/model_state_level_", Sys.Date(), "_n_rejected_latinx_by_state_turnout_by_state.jpeg"), plt_n_latinx_rejected)
+ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_latinx_by_state_turnout_by_state.jpeg"), plt_n_latinx_rejected)
 ## asian ----
 plt_n_asian_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_asian_sum_mean)]))) + 
   geom_point(aes(x = State, y = n_rejected_asian_sum_mean)) + 
@@ -511,7 +513,7 @@ plt_n_asian_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, le
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected Asian absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/model_state_level_", Sys.Date(), "_n_asian_latinx_by_state_turnout_by_state.jpeg"), plt_n_asian_rejected)
+ggsave(paste0("plots/", model_prefix, Sys.Date(),"_n_asian_by_state_turnout_by_state.jpeg"), plt_n_asian_rejected)
 ## white ----
 require(scales)
 plt_n_white_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_white_sum_mean)]))) + 
@@ -523,15 +525,15 @@ plt_n_white_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, le
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected white absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/model_state_level_", Sys.Date(), "_n_rejected_white_by_state_turnout_by_state.jpeg"), plt_n_white_rejected)
+ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_white_by_state_turnout_by_state.jpeg"), plt_n_white_rejected)
 ## nation ----
-df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(sim) %>% dplyr::select(-State) %>%
   summarise_all(list(sum = sum)) %>% 
   ungroup() %>% 
-  summarize_all(list(mean = mean, sd = sd))
-
+  summarize_all(list(~ mean(.), ~ sd(.)))
+  
 rejected_mean <- df_sim %>% pivot_longer(cols = c(n_rejected_white_sum_mean, n_rejected_black_sum_mean,
                                                   n_rejected_hispanic_sum_mean, n_rejected_asian_sum_mean, n_rejected_other_sum_mean),
                                          names_pattern = "n_(.+)_sum_mean",
@@ -578,9 +580,9 @@ plt_national <- ggplot(data = national_sim) +
         legend.title = element_blank(),
         axis.text.x = element_text(angle = 90)) + 
   labs(y = "Rejected ballots", title = "N of rejected ballots (70% VBM)")
-ggsave(paste0("plots/model_state_level_", Sys.Date(), "_n_rejected_national_turnout_by_state.jpeg"), plt_national)
+ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_national_turnout_by_state.jpeg"), plt_national)
 # change in support
-df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(State, sim) %>% 
   summarise_all(list(sum = sum)) %>% 
@@ -618,7 +620,7 @@ ggplot(data = df_sim_support %>% mutate(State = factor(State, levels = State[ord
   
 
 ## rates ----
-df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state.Rds")
+df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
 df_sim <- df_sim %>% group_by(State, sim) %>% 
   summarise_all(list(sum = sum)) %>% 
@@ -656,7 +658,7 @@ df_shares <- df_sim %>%
                values_to = "share") %>%
   group_by(State, kind, group) %>% 
   dplyr::select(-sim) %>%
-  summarize_all(list(mean = mean, sd = sd)) %>%
+  summarize_all(list(~ mean(.), ~ sd(.))) %>%
   ungroup()
 rates_white <- ggplot(data = df_shares %>% 
                         filter(group == 'white') %>%
@@ -714,6 +716,6 @@ rates_other <- ggplot(data = df_shares %>%
   theme(axis.title = element_blank(), legend.position = "right", axis.text.x = element_text(angle = 90)) + 
   labs("Share", title = "other")
 plt_rates <- grid.arrange(rates_white, rates_black, rates_hispanic, rates_asian, rates_other, ncol = 2)
-ggsave(paste0("plots/model_state_level_", Sys.Date(), "_group_shares_turnout_by_state.jpeg"), plt_rates, width = 14, height = 8)
+ggsave(paste0("plots/", model_prefix, Sys.Date(),"_group_shares_turnout_by_state.jpeg"), plt_rates, width = 14, height = 8)
 
 
