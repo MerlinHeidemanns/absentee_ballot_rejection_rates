@@ -78,15 +78,56 @@ cat("Percentage missing rejected", mean(!is.na(eavs$C4b)), "\n")
 cat("Percentage missing submitted", mean(!is.na(eavs$C1b)), "\n")
 cat("Percentage missing transmitted", mean(!is.na(eavs$C1a)), "\n")
 cat("Percentage missing rejected", mean(!is.na(eavs$rejected)), "\n")
-print("first fix if submitted - counted is bigger than rejected")
-eavs %>% transmute(rejected = C4b, 
+mean_changes_C1b_C4a <- eavs %>% transmute(rejected = C4b, 
                    rejected = 
                      ifelse(is.na(C4b) | is.na(C4a) | is.na(C1b), rejected,
                             ifelse(C4b < (C1b - C4a), C1b - C4a, rejected)),
                    change = ifelse(!is.na(C1b) & !is.na(C4a) & is.na(rejected), 1, 0)) %>% 
-  pull(change) %>% mean(.) %>% print(.)
+  pull(change) %>% mean(.)
+cat("first fix if submitted - counted is bigger than rejected", mean_changes_C1b_C4a)
+
+eavs_viz <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
+  mutate(
+    rejected = C4b, 
+    rejected =
+      ifelse(is.na(C4b) | is.na(C4a) | is.na(C1b), rejected,
+             ifelse(C4b < (C1b - C4a), C1b - C4a, rejected)),
+    rejected = ifelse(is.na(rejected), C4b, rejected),
+    rejected =
+      ifelse(!is.na(C1b) & !is.na(C4a) & is.na(rejected),
+             C1b - C4a, rejected)
+  ) %>%
+  rename(population = F1a, 
+         submitted = C1b,
+         transmitted = C1a,
+         JurisdictionName = JurisdictionName.x) %>%
+  mutate(
+    pr1 = transmitted/population,
+    pr2 = submitted/transmitted,
+    pr3 = rejected/submitted
+  ) %>% 
+  dplyr::select(State, pr1, pr2, pr3) %>%
+  group_by(State) %>%
+  summarize_all(list(~ mean(., na.rm = TRUE), 
+                     ~ sd(., na.rm = TRUE),
+                     ~ max(., na.rm = TRUE),
+                     ~ min(., na.rm = TRUE))) %>%
+  pivot_longer(cols = c(-State),names_to = c("kind", ".value"),
+               names_pattern = "(.+)_(.+)")
+ggplot(data = eavs_viz) + 
+  geom_point(aes(x = State, y = mean), size = 0.8) +
+  geom_point(aes(x = State, y = max), size = 0.8, shape = 4) +
+  geom_point(aes(x = State, y = min), size = 0.8, shape = 4) +
+  geom_errorbar(aes(x = State, ymax = mean + 2/3 * sd, ymin = mean - 2/3 * sd), width = 0) +
+  coord_flip() + 
+  ylim(c(0,1)) + 
+  labs(x = "Share") + 
+  facet_grid(~kind, scales = "free") + 
+  theme_bw()
 
 
+
+# eavs out
 eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
   mutate(
     rejected = C4b, 
@@ -95,7 +136,7 @@ eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
              ifelse(C4b < (C1b - C4a), C1b - C4a, rejected)),
     rejected = ifelse(is.na(rejected), C4b, rejected),
     rejected =
-      ifelse(!is.na(C1b) & !is.na(C4b) & is.na(rejected),
+      ifelse(!is.na(C1b) & !is.na(C4a) & is.na(rejected),
              C1b - C4a, rejected)
   ) %>%
   rename(population = F1a, 
