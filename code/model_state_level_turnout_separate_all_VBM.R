@@ -13,6 +13,7 @@ source("code/load_model_data.R")
 source("code/functions.R")
 
 model_prefix <- "model_state_level_allVBM"
+subset       <- "95p"
 # descriptive viz
 req_sub <- ggplot(data = df_subset, aes(x = pr1, y = pr2)) + 
   geom_point(size = 0.2)
@@ -26,10 +27,14 @@ grid.arrange(req_sub, sub_rej, req_rej)
 # drop states with only one observation
 # create group id
 # create a crosswalk from state names to group ids
+cat("Size before limits", dim(df_subset), "\n",
+    "N of states", length(unique(df_subset$State)))
 df_subset  <- df_subset %>% 
   group_by(State) %>%
   filter(n() > 2) %>%
-  ungroup()
+  ungroup() 
+cat("Size after limits", dim(df_subset), "\n",
+    "N of states", length(unique(df_subset$State)))
 
 df_subset_xbar1 <- df_subset %>%
   filter(!(State %in% c("OR", "WA", "CO", "UT", "HI"))) %>%
@@ -44,15 +49,22 @@ df_subset <- rbind(df_subset_xbar1,
                    df_subset_xbar2,
                    df_subset_xbar3)
 
+df_subset_xbar1 <- df_subset_xbar1 %>%
+  filter(pr1 >= quantile(pr1, 0.01), pr1 <= quantile(pr1, 0.99),
+         pr2 >= quantile(pr2, 0.01), pr2 <= quantile(pr2, 0.99),
+         pr3 >= quantile(pr3, 0.01), pr3 <= quantile(pr3, 0.99)
+  )
+
+
+
+
 region_crosswalk <- rbind(
   df_subset_xbar1 %>% distinct(State, group_id),
   df_subset_xbar2 %>% distinct(State, group_id),
   df_subset_xbar3 %>% distinct(State, group_id)
 ) %>% arrange(group_id)
 
-write_rds(df_subset_xbar1, path = "model_fits/fit_model_state_level_turnout_allVBM_xbar1.Rds")
-write_rds(df_subset_xbar2, path = "model_fits/fit_model_state_level_turnout_allVBM_xbar2.Rds")
-write_rds(df_subset_xbar3, path = "model_fits/fit_model_state_level_turnout_allVBM_xbar3.Rds")
+write_rds(df_subset, path = paste0("model_fits/", model_prefix, "_", subset, "_data", ".Rds"))
 
 # model
 model <- rstan::stan_model("code/stan/v11_ecological_regression_prop_w_allVBM.stan")
@@ -91,20 +103,17 @@ data_model <- list(
   ybar3 = ybar3
 )
 fit <- rstan::sampling(model, data_model, chains = 4, cores = 4, warmup = 2000, iter = 2500)
-write_rds(fit, path = "model_fits/fit_model_state_level_turnout_allVBM.Rds")
+write_rds(fit, path = paste0("model_fits/", model_prefix, "_", subset, ".Rds"))
 
 
 # prediction
 # create posterior compositions of the groups of those who requested and submitted absentee ballots
-fit <- read_rds("model_fits/fit_model_state_level_turnout_allVBM.Rds")
-df_subset_xbar1 <- read_rds(path = "model_fits/fit_model_state_level_turnout_allVBM_xbar1.Rds")
-df_subset_xbar2 <- read_rds(path = "model_fits/fit_model_state_level_turnout_allVBM_xbar2.Rds")
-df_subset_xbar3 <- read_rds(path = "model_fits/fit_model_state_level_turnout_allVBM_xbar3.Rds")
+fit <- read_rds(path = paste0("model_fits/", model_prefix, "_", subset, ".Rds"))
+
+df_subset <- read_rds(path = paste0("model_fits/", model_prefix, "_", subset, "_data", ".Rds"))
 
 nsim = 100
-ybar1 <- matrix(NA, nrow = data_model$J[1], ncol = nsim))
-ybar2 <- matrix(NA, nrow = data_model$J[2], ncol = nsim))
-ybar3 <- matrix(NA, nrow = data_model$J[3], ncol = nsim))
+
 beta_1 <- rstan::extract(fit, pars = "beta1")[[1]]
 beta_2 <- rstan::extract(fit, pars = "beta2")[[1]]
 beta_3 <- rstan::extract(fit, pars = "beta3")[[1]]
@@ -263,7 +272,8 @@ maximum_predicted %>% pivot_longer(cols = everything(), names_to = "kind", value
 ggsave(paste0("plots/model_state_level_", Sys.Date(), "_ppd_maximum.jpeg"), maximum_predicted)
 
 
-# residuals
+
+# residuals ---------------------------------------------------------------
 counties <- rgdal::readOGR(dsn = 
                             "data/shapefiles", 
                           layer = "cb_2019_us_county_20m")
@@ -302,7 +312,16 @@ ggsave(paste0("plots/model_state_level_", Sys.Date(), "_residuals_requested.jpeg
 ggsave(paste0("plots/model_state_level_", Sys.Date(), "_residuals_submitted.jpeg"), res2)
 ggsave(paste0("plots/model_state_level_", Sys.Date(), "_residuals_rejected.jpeg"), res3)
 
-# coefplot
+
+# coefplot ----------------------------------------------------------------
+
+beta_1 <- rstan::extract(fit, pars = "beta1")[[1]]
+beta_2 <- rstan::extract(fit, pars = "beta2")[[1]]
+beta_3 <- rstan::extract(fit, pars = "beta3")[[1]]
+beta_region <- array(1, dim = c(2000, 3, 46, 5))
+beta_region[,1,1:42,] <- beta_1
+beta_region[,2,1:45,] <- beta_2
+beta_region[,3,1:46,] <- beta_3
 cat <- df_subset %>% dplyr::select(group_id, State) %>% distinct()
 groups <- c("white", "black", "latinx", 'asian', "other")
 kind <- c("requested", "submitted", "rejected")
@@ -396,8 +415,7 @@ coef_plot_region_rejected <- ggplot(data = df_region_coef %>%
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 90), axis.title.x = element_blank(), legend.title = element_blank()) + 
   labs(y = "Rejected")
 plt_grid <- grid.arrange(coef_plot_region_requested, coef_plot_region_submitted, coef_plot_region_rejected, ncol = 1)
-ggsave(paste0("plots/", model_prefix, Sys.Date(), "_pr_with_turnout_by_state.jpeg"), plt_grid)
-
+ggsave(paste0("plots/", model_prefix, "_", subset, Sys.Date(), "_pr_with_turnout_by_state.jpeg"), plt_grid)
 
 
 # voting power 
@@ -483,7 +501,7 @@ df_sim <- df_sim %>% group_by(State, sim) %>%
   ungroup() %>% 
   group_by(State) %>%
   summarize_all(list(~ mean(.), ~ sd(.))) # %>% 
-  #write.csv(., file = paste0(model_prefix, "_estimates_by_state_group_updated.csv"))
+  #write.csv(., file = paste0(model_prefix, "_", subset, "_estimates_by_state_group_updated.csv"))
 ## black ----
 plt_n_black_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_black_sum_mean)]))) + 
   geom_point(aes(x = State, y = n_rejected_black_sum_mean)) + 
@@ -493,7 +511,7 @@ plt_n_black_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, le
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected Black absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_black_by_state_turnout_by_state.jpeg"), plt_n_black_rejected)
+ggsave(paste0("plots/", model_prefix, "_", subset, Sys.Date(), "_n_rejected_black_by_state_turnout_by_state.jpeg"), plt_n_black_rejected)
 ## hispanic ----
 plt_n_latinx_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_hispanic_sum_mean)]))) + 
   geom_point(aes(x = State, y = n_rejected_hispanic_sum_mean)) + 
@@ -503,7 +521,7 @@ plt_n_latinx_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, l
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected Latinx absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_latinx_by_state_turnout_by_state.jpeg"), plt_n_latinx_rejected)
+ggsave(paste0("plots/", model_prefix, "_", subset, Sys.Date(), "_n_rejected_latinx_by_state_turnout_by_state.jpeg"), plt_n_latinx_rejected)
 ## asian ----
 plt_n_asian_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_asian_sum_mean)]))) + 
   geom_point(aes(x = State, y = n_rejected_asian_sum_mean)) + 
@@ -513,7 +531,7 @@ plt_n_asian_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, le
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected Asian absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/", model_prefix, Sys.Date(),"_n_asian_by_state_turnout_by_state.jpeg"), plt_n_asian_rejected)
+ggsave(paste0("plots/", model_prefix, "_", subset, Sys.Date(),"_n_asian_by_state_turnout_by_state.jpeg"), plt_n_asian_rejected)
 ## white ----
 require(scales)
 plt_n_white_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, levels = State[order(n_rejected_white_sum_mean)]))) + 
@@ -525,7 +543,7 @@ plt_n_white_rejected <- ggplot(data = df_sim %>% mutate(State = factor(State, le
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank()) + 
   labs(y = "Rejected absentee votes", title = "Rejected white absentee ballots (70% of 2016 VBM)")
-ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_white_by_state_turnout_by_state.jpeg"), plt_n_white_rejected)
+ggsave(paste0("plots/", model_prefix, "_", subset, Sys.Date(), "_n_rejected_white_by_state_turnout_by_state.jpeg"), plt_n_white_rejected)
 ## nation ----
 df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
@@ -580,7 +598,7 @@ plt_national <- ggplot(data = national_sim) +
         legend.title = element_blank(),
         axis.text.x = element_text(angle = 90)) + 
   labs(y = "Rejected ballots", title = "N of rejected ballots (70% VBM)")
-ggsave(paste0("plots/", model_prefix, Sys.Date(), "_n_rejected_national_turnout_by_state.jpeg"), plt_national)
+ggsave(paste0("plots/", model_prefix, "_", subset, Sys.Date(), "_n_rejected_national_turnout_by_state.jpeg"), plt_national)
 # change in support
 df_sim <- read_rds(path = "model_fits/fit_simulated_70percent_turnout_by_state_allVBM.Rds")
 df_sim <- df_sim %>% group_by(FIPSCode) %>% mutate(sim = sequence(n()))
@@ -716,6 +734,6 @@ rates_other <- ggplot(data = df_shares %>%
   theme(axis.title = element_blank(), legend.position = "right", axis.text.x = element_text(angle = 90)) + 
   labs("Share", title = "other")
 plt_rates <- grid.arrange(rates_white, rates_black, rates_hispanic, rates_asian, rates_other, ncol = 2)
-ggsave(paste0("plots/", model_prefix, Sys.Date(),"_group_shares_turnout_by_state.jpeg"), plt_rates, width = 14, height = 8)
+ggsave(paste0("plots/", model_prefix, "_", subset, Sys.Date(),"_group_shares_turnout_by_state.jpeg"), plt_rates, width = 14, height = 8)
 
 

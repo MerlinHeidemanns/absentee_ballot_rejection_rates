@@ -22,13 +22,9 @@ turn_numeric <- function(df, pos){
 }
 # data
 df <- read.csv("data/eavs_merged_w_acs_2013_2018.csv") %>%
-  mutate(pr1 = ifelse(State %in% c("OR", "WA", "CO", "UT", "HI"), 1, pr1),
-         pr1 = as.numeric(as.character(pr1)),
-         pr1 = ifelse(pr1 >1 | pr1 < 0, NA, pr1),
+  mutate(pr1 = as.numeric(as.character(pr1)),
          pr2 = as.numeric(as.character(pr2)),
-         pr2 = ifelse(pr1 >1 | pr1 < 0, NA, pr2),
          pr3 = as.numeric(as.character(pr3)),
-         pr3 = ifelse(pr1 >1 | pr1 < 0, NA, pr3),
          rejected = as.numeric(as.character(rejected)),
          mail_ballots_submitted = as.numeric(as.character(mail_ballots_submitted)),
          transmitted = as.numeric(as.character(transmitted)),
@@ -51,10 +47,10 @@ df_turnout <- read.csv("data/turnout_by_state_wabh.csv") %>%
   )
 df <- df %>% left_join(df_turnout, by = "State") %>% mutate(
   region_5 = ifelse(State %in% west,      "west",
-                    ifelse(State %in% midwest,   "midwest",
-                           ifelse(State %in% south,     "south",
-                                  ifelse(State %in% northeast, "northeast",
-                                         "pacfic"))))
+             ifelse(State %in% midwest,   "midwest",
+             ifelse(State %in% south,     "south",
+             ifelse(State %in% northeast, "northeast",
+                                          "pacfic"))))
 )
 
 df_subset <- df %>% 

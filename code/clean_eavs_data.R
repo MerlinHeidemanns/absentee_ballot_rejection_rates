@@ -186,7 +186,12 @@ eavs <- eavs %>%
     rejected = ifelse(State == "AL", NA, rejected),
     pr2      = ifelse(State %in% c("HI", "CT"), NA, pr2),
     pr1      = transmitted/total_votes_2016,
-    pr1      = ifelse(State %in% c("OR", "CO", "WA"), 1, pr1)
+    pr1      = ifelse(State %in% c("OR", "WA", "CO", "UT", "HI"), 1, pr1),
+    pr1 = ifelse(State %in% c("OR", "WA", "CO", "UT", "HI"), 1, pr1),
+    pr1 = ifelse(pr1 >1 | pr1 < 0, NA, pr1),
+    pr2 = ifelse(pr1 >1 | pr1 < 0, NA, pr2),
+    pr3 = ifelse(pr1 >1 | pr1 < 0, NA, pr3)
   ) 
+
 
 
