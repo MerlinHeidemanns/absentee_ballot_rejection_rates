@@ -59,9 +59,13 @@ df_f <- rbind(df_f %>% filter(State != "TX") %>% mutate(F1a = get_int(F1a)), df_
 
 # C4b = rejected
 # C4a = counted
+# F1d = Voted using a domestic civilian absentee ballot / counted
+
 # C1b = Returned by voters and submitted for counting
-# F1d = Voted using a domestic civilian absentee ballot 
 # F1f = Voted at an early vote center
+
+# F1d should be equal or 
+
 # merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
 #   filter(C4a >= (F1d + F1f), F1f != 0) %>% 
 #   mutate(C1a_new = C1a - F1f,
@@ -86,13 +90,67 @@ mean_changes_C1b_C4a <- eavs %>% transmute(rejected = C4b,
   pull(change) %>% mean(.)
 cat("first fix if submitted - counted is bigger than rejected", mean_changes_C1b_C4a)
 
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
+  ggplot(data = ., aes(x = C4a - F1d)) +
+    geom_histogram(bins = 40) +
+    facet_wrap(.~State, scales = "free") + 
+    theme_bw()
+
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
+  dplyr::select(State, F1c, F1g, C1b, C4a, C4b) %>%
+  filter(F1g != "-999999: Data Not Available",
+         F1g != "-888888: Not Applicable",
+         F1g != "0") %>%
+  mutate(F1g = as.numeric(as.character(F1g))) %>%
+    View() 
+
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
+  mutate(C1a_alt = get_int_NA0(C1b) +
+           get_int_NA0(C1c) +
+           get_int_NA0(C1d) +
+           get_int_NA0(C1e) +
+           get_int_NA0(C1f) +
+           get_int_NA0(C1g) +
+           get_int_NA0(C1h)
+  ) %>%
+  dplyr::select(State, C4a, C4b,C1a_alt,C1a, C1b, C1c, C1d, C1e, C1f, C1g, C1h) %>%
+  View()
+  
+C1a
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
+  dplyr::select(State, C1b, C4a, C4b, C4Comments) %>%
+  filter(C4Comments != "-999999: Data Not Available",
+         C4Comments != "-999999: Data Not Available",
+         C4Comments != "-888888: Not Applicable") %>%
+  View()
+  
+eavs_f1df1f <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
+  mutate(C1b_alt = F1d + F1f) %>%
+  dplyr::select(State, C1b_alt, C1b, F1d, F1f, C4b) %>%
+  mutate(counted_m_rejected = C1b - C4b,
+         equal    = ifelse(submitted_m_rejected == F1d,1,0)) %>%
+  filter(State == "TN") %>%
+  View()
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
+  mutate(C1b_alt = F1d + F1f) %>%
+  dplyr::select(State, C1b_alt, C1b, F1d, F1f, C4b) %>%
+  mutate(counted_m_rejected = C1b - C4b,
+        equal_na = ifelse(is.na(counted_m_rejected) | is.na(F1d), 1, 0),
+        equal    = ifelse(counted_m_rejected == F1d,1,0)) %>%
+  group_by(State) %>%
+  summarize(mean_equal = mean(equal, na.rm = TRUE),
+            mean_equal_na = mean(equal_na)) %>%
+  View()
+
+
+
+C1b = F1d + F1f
 eavs_viz <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
   mutate(
     rejected = C4b, 
     rejected =
       ifelse(is.na(C4b) | is.na(C4a) | is.na(C1b), rejected,
              ifelse(C4b < (C1b - C4a), C1b - C4a, rejected)),
-    rejected = ifelse(is.na(rejected), C4b, rejected),
     rejected =
       ifelse(!is.na(C1b) & !is.na(C4a) & is.na(rejected),
              C1b - C4a, rejected)
@@ -104,17 +162,25 @@ eavs_viz <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
   mutate(
     pr1 = transmitted/population,
     pr2 = submitted/transmitted,
-    pr3 = rejected/submitted
-  ) %>% 
-  dplyr::select(State, pr1, pr2, pr3) %>%
-  group_by(State) %>%
-  summarize_all(list(~ mean(., na.rm = TRUE), 
-                     ~ sd(., na.rm = TRUE),
-                     ~ max(., na.rm = TRUE),
-                     ~ min(., na.rm = TRUE))) %>%
-  pivot_longer(cols = c(-State),names_to = c("kind", ".value"),
-               names_pattern = "(.+)_(.+)")
-ggplot(data = eavs_viz) + 
+    pr3 = rejected/submitted,
+    pr3_alt = C4b/submitted
+  )
+ggplot(data = eavs_viz %>%
+         filter(pr3 != pr3_alt)) +
+  geom_point(aes(x = pr3, y = pr3_alt, size = rejected), alpha = 0.3) +
+  geom_abline() +
+  facet_wrap(.~State) +
+  theme_bw()
+
+ggplot(data = eavs_viz %>% 
+         dplyr::select(State, pr1, pr2, pr3) %>%
+         group_by(State) %>%
+         summarize_all(list(~ mean(., na.rm = TRUE), 
+                            ~ sd(., na.rm = TRUE),
+                            ~ max(., na.rm = TRUE),
+                            ~ min(., na.rm = TRUE))) %>%
+         pivot_longer(cols = c(-State),names_to = c("kind", ".value"),
+                      names_pattern = "(.+)_(.+)")) + 
   geom_point(aes(x = State, y = mean), size = 0.8) +
   geom_point(aes(x = State, y = max), size = 0.8, shape = 4) +
   geom_point(aes(x = State, y = min), size = 0.8, shape = 4) +
@@ -125,11 +191,158 @@ ggplot(data = eavs_viz) +
   facet_grid(~kind, scales = "free") + 
   theme_bw()
 
+t <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
+  mutate(counted = ifelse(is.na(C4a) & is.na(F1d), NA,
+                   ifelse(is.na(C4a), F1d,
+                   ifelse(is.na(F1d), C4a,
+                   ifelse(C4a > F1d, C4a, F1d)))))
 
 
-# eavs out
+# CT ----------------------------------------------------------------------
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
+  filter(State == "CT") %>%
+  dplyr::select(F1d, C1a, C4a, C1b, C4b) %>%
+  View()
+
+# HI ----------------------------------------------------------------------
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
+  filter(State == "HI") %>% View()
+  dplyr::select(C1a, C1b, C4a, C4b, F1a, F1b, F1c, F1d) %>%
+  mutate(submitted_alt = get_int_NA0(F1c) + C4a + C4b) %>%
+  View()
+
+# TX ----------------------------------------------------------------------
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
+  filter(State == "TX", C1b == C4a) %>% 
+  mutate(C4b_alt = get_int_NA0(C5a) + 
+           get_int_NA0(C5a) + 
+           get_int_NA0(C5b) + 
+           get_int_NA0(C5c) + 
+           get_int_NA0(C5d) + 
+           get_int_NA0(C5e) + 
+           get_int_NA0(C5f) + 
+           get_int_NA0(C5g) + 
+           get_int_NA0(C5h) + 
+           get_int_NA0(C5i) + 
+           get_int_NA0(C5j) + 
+           get_int_NA0(C5k) + 
+           get_int_NA0(C5l) + 
+           get_int_NA0(C5m) + 
+           get_int_NA0(C5n) + 
+           get_int_NA0(C5o) + 
+           get_int_NA0(C5p) + 
+           get_int_NA0(C5q) + 
+           get_int_NA0(C5r) + 
+           get_int_NA0(C5s) + 
+           get_int_NA0(C5t) + 
+           get_int_NA0(C5u) + 
+           get_int_NA0(C5v),
+         rejected = ifelse(is.na(C4b) & C4b_alt != 0, C4b_alt, C4b),
+         rejected = ifelse(is.na(rejected), C1a - C4a, rejected),
+         rejected = ifelse(C4a == C4b, C4b_alt, rejected),
+         rejected = ifelse(is.na(C4b) & C4b_alt == 0, C1b - C4a, rejected),
+         rejected = ifelse(is.na(rejected) & C4b_alt != 0, C4b_alt, rejected),
+         submitted = ifelse(rejected > C1b - C4a, C1b + rejected, C1b),
+         transmitted = ifelse(rejected > C1b - C4a, C1a + rejected, C1a),
+         counted = submitted - rejected
+  ) %>%
+  dplyr::select(C1a, C1b, C4a, C4b, C4b_alt, rejected,counted, submitted, transmitted, F1a, F1b, F1c, F1d, C4c, C4d) %>%
+  View()
+
+# NM ----------------------------------------------------------------------
+merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
+  filter(State == "NM") %>% 
+  mutate(C4b_alt = get_int_NA0(C5a) + 
+           get_int_NA0(C5a) + 
+           get_int_NA0(C5b) + 
+           get_int_NA0(C5c) + 
+           get_int_NA0(C5d) + 
+           get_int_NA0(C5e) + 
+           get_int_NA0(C5f) + 
+           get_int_NA0(C5g) + 
+           get_int_NA0(C5h) + 
+           get_int_NA0(C5i) + 
+           get_int_NA0(C5j) + 
+           get_int_NA0(C5k) + 
+           get_int_NA0(C5l) + 
+           get_int_NA0(C5m) + 
+           get_int_NA0(C5n) + 
+           get_int_NA0(C5o) + 
+           get_int_NA0(C5p) + 
+           get_int_NA0(C5q) + 
+           get_int_NA0(C5r) + 
+           get_int_NA0(C5s) + 
+           get_int_NA0(C5t) + 
+           get_int_NA0(C5u) + 
+           get_int_NA0(C5v),
+         transmitted_submitted = C1a - C1b,
+         rejected = ifelse(is.na(C4b) & C4b_alt == 0, NA, 
+                    ifelse(is.na(C4b), C4b_alt, C4b )),
+         rejected = ifelse(!is.na(C4b) & C4b_alt != 0,
+                    ifelse(C4b > C4b_alt, C4b, 
+                    ifelse(C4b < C4b_alt, C4b_alt, rejected)), rejected) ,
+         rejected = ifelse(is.na(rejected) & C1b > C4a, C1b - C4a, rejected),
+         counted = ifelse(is.na(C4a), C1b - rejected, 
+                   ifelse(C4a > C1b, C1b - rejected, 
+                   ifelse(C4a == 0, C1b - rejected, C4a)
+                          ))
+                           ) %>%
+  dplyr::select(C1a, C1b, counted, C4a, rejected, C4b, C4b_alt, F1a, F1b, F1c, F1d, F1e, F1f, F1g, F2, F2_Other) %>%
+  View()
+
+# AZ ----------------------------------------------------------------------
+eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
+  filter(State == "AZ") %>%
+  mutate(C4b_alt = get_int_NA0(C5a) + 
+           get_int_NA0(C5a) + 
+           get_int_NA0(C5b) + 
+           get_int_NA0(C5c) + 
+           get_int_NA0(C5d) + 
+           get_int_NA0(C5e) + 
+           get_int_NA0(C5f) + 
+           get_int_NA0(C5g) + 
+           get_int_NA0(C5h) + 
+           get_int_NA0(C5i) + 
+           get_int_NA0(C5j) + 
+           get_int_NA0(C5k) + 
+           get_int_NA0(C5l) + 
+           get_int_NA0(C5m) + 
+           get_int_NA0(C5n) + 
+           get_int_NA0(C5o) + 
+           get_int_NA0(C5p) + 
+           get_int_NA0(C5q) + 
+           get_int_NA0(C5r) + 
+           get_int_NA0(C5s) + 
+           get_int_NA0(C5t) + 
+           get_int_NA0(C5u) + 
+           get_int_NA0(C5v)) %>%
+  dplyr::select(C1a, C1b, C4a, C4b, C4b_alt, F1a, F1b, F1c, F1d, F1e, F1f, F1g) %>%
+  View()
+    
+  
+  
+  
+  
+# eavs out ----------------------------------------------------------------
 eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>% 
   mutate(
+    C4b_alt = get_int_NA0(C5a) + get_int_NA0(C5a) + get_int_NA0(C5b) + get_int_NA0(C5c) + get_int_NA0(C5d) + get_int_NA0(C5e) + 
+      get_int_NA0(C5f) + get_int_NA0(C5g) + get_int_NA0(C5h) + get_int_NA0(C5i) + get_int_NA0(C5j) + get_int_NA0(C5k) + get_int_NA0(C5l) + 
+      get_int_NA0(C5m) + get_int_NA0(C5n) + get_int_NA0(C5o) + get_int_NA0(C5p) + get_int_NA0(C5q) + get_int_NA0(C5r) + get_int_NA0(C5s) + 
+      get_int_NA0(C5t) + get_int_NA0(C5u) + get_int_NA0(C5v),
+    
+    
+    
+    
+    
+    
+    transmitted = C1a - get_intNA(C1c),
+    
+    counted = ifelse(is.na(C4a) & is.na(F1d), NA,
+                   ifelse(is.na(C4a), F1d,
+                   ifelse(is.na(F1d), C4a,
+                   ifelse(C4a > F1d, C4a, F1d)))),
+         
     rejected = C4b, 
     rejected =
       ifelse(is.na(C4b) | is.na(C4a) | is.na(C1b), rejected,
@@ -137,7 +350,15 @@ eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
     rejected = ifelse(is.na(rejected), C4b, rejected),
     rejected =
       ifelse(!is.na(C1b) & !is.na(C4a) & is.na(rejected),
-             C1b - C4a, rejected)
+             C1b - C4a, rejected),
+    # HI
+    transmitted = ifelse(State == "HI", C1a - get_int_NA0(F1c), transmitted),
+    submitted = ifelse(State == "HI", C1b - get_int_NA0(F1c), submitted),
+    rejected = ifelse(State == "HI", C4b, rejected),
+    # TX
+    rejected = ifelse(!is.na(C4b), 
+               ifelse((C4b + C4a) == C1a, C4b, C4b_alt)
+                      , ifelse(C4b_alt != 0, C4b_alt, C4b))
   ) %>%
   rename(population = F1a, 
          submitted = C1b,
@@ -233,6 +454,9 @@ eavs <- eavs %>%
     pr2 = ifelse(pr1 >1 | pr1 < 0, NA, pr2),
     pr3 = ifelse(pr1 >1 | pr1 < 0, NA, pr3)
   ) 
+
+
+
 
 
 

@@ -42,7 +42,8 @@ ggplot(data = joint %>%
   geom_abline() +
   geom_point() +
   theme_bw() +
-  geom_text(aes(label=ethn),hjust=0, vjust=0)
+  geom_text(aes(label=ethn),hjust=, vjust=0, size = 3) +
+  labs(x = "Share submitted", y = "Share rejected", title = paste0("Absentee ballots in NC. Date: ", Sys.Date()))
 
 
 # rates by age
