@@ -15,17 +15,17 @@ North Carolina for some reason continuously publishes data on absentee ballots a
 
 In an ideal world rejection rates would be constant and plotting shares among submitted and rejected by ethnic/racial group should be on the diagonal. Yes, the groups at the bottom are squashed together but their population share doesn't really matter here. The picture is the same as when estimating these rates at with EAVS data. Minorities generally above the line, white Americans below.
 
-![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Shares_rejected_submitted.jpg)
+![](plots/States/NC/Shares_rejected_submitted.jpg)
 
 ### Over age
 
 An interesting thing is that the data has a lot of personal characteristics one of which being age. So what about age over race. The values are now estimated with a binomial model and a random walk prior going from 18 to 95 for regularization for whites and non-whites. Sadly, no partial pooling but there is so much data and information is still being shared. A second version could use a Gaussian process maybe. Anyway, here estimates over age for white against non-white, female against male, and their interactions.
 
-![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg)
+![](plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg)
 
-![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_gender_NC.jpeg)
+![](plots/States/NC/Rejected_rates_by_age_gender_NC.jpeg)
 
-![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_gender_race_NC.jpeg)
+![](plots/States/NC/Rejected_rates_by_age_gender_race_NC.jpeg)
 
 
 
