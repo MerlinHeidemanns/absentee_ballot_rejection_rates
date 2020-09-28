@@ -15,24 +15,22 @@ write.csv(merged,"data/eavs_merged_w_acs_2013_2018.csv", na="NA")
 cat("Dimensions merged:", dim(merged), "\n",
     "Dimensions EAVS:", dim(eavs), "\n",
     "Dimensions ACS:", dim(df_acs), "\n")
-
+cat("States merged", length(unique(merged$State)), "\n",
+    "States eavs", length(unique(eavs$State)), "\n")
+df_acs_coll <- df_acs %>%
+  group_by(State) %>%
+  summarize(count_acs = n())
+df_merged_coll <- merged %>%
+  group_by(State) %>%
+  summarize(count_merged = n())
+df_eavs_coll <- eavs %>%
+  group_by(State) %>%
+  summarize(count_eavs = n())
+df_merged_coll %>%
+  full_join(df_eavs_coll, by = "State") %>%
+  print(.)
+# duplicates
 duplicates_acs <- df_acs %>% group_by(FIPSCode) %>%
   summarize(count = n()) %>% ungroup() %>%
   filter(count > 1) %>% pull(count) %>% sum()
 cat("N of duplicates in the ACS:", duplicates_acs)
-
-
-cond1 = ifelse(min(merged$rejected, na.rm = TRUE) < 0, TRUE, FALSE)
-cond2 = ifelse(max(merged$pr3, na.rm = TRUE) > 1 |
-                 min(merged$pr3, na.rm = TRUE) < 0 |
-                 max(merged$pr2, na.rm = TRUE) > 1 |
-                 min(merged$pr2, na.rm = TRUE) < 0 ,
-               TRUE, FALSE)  
-merged %>% filter(
-  rejected < 0 |
-    pr2      > 1 |
-    pr2      < 0 |
-    pr3      > 1 |
-    pr3      < 0
-) %>%
-  dplyr::select(State, JurisdictionName, rejected, pr2, pr3)
