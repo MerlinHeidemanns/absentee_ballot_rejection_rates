@@ -7,7 +7,33 @@ Although absentee voting/vote-by-mail (VBM) may be a safe alternative to voting 
 * *Monday, September 28th, 2020:* I took the number of absentee ballots requested so far from the NYT website and am using them instead of assuming a 70% absentee request rate across all states.
 * *Sunday, September 27th, 2020*: I went through the EAVS data and where possible fixed the data for ballots transmitted, submitted, counted, and rejected. There are still counties that are getting dropped due to missing or clearly false data but their number is in the high single/very low double digits.
 
-## Approach
+## North Carolina
+
+North Carolina for some reason continuously publishes data on absentee ballots and their status at the individual level with a surprising amount of personal information. So we can actually do a lot with this.
+
+### Raw shares
+
+In an ideal world rejection rates would be constant and plotting shares among submitted and rejected by ethnic/racial group should be on the diagonal. Yes, the groups at the bottom are squashed together but their population share doesn't really matter here. The picture is the same as when estimating these rates at with EAVS data. Minorities generally above the line, white Americans below.
+
+![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Shares_rejected_submitted.jpg)
+
+### Over age
+
+An interesting thing is that the data has a lot of personal characteristics one of which being age. So what about age over race. The values are now estimated with a binomial model and a random walk prior going from 18 to 95 for regularization for whites and non-whites. Sadly, no partial pooling but there is so much data and information is still being shared. A second version could use a Gaussian process maybe. Anyway, here estimates over age for white against non-white, female against male, and their interactions.
+
+![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg)
+
+![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_gender_NC.jpeg)
+
+![](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_gender_race_NC.jpeg)
+
+
+
+
+
+## Nationally
+
+### Approach
 
 To estimate a rejection rate of an ethnic group we would look at the share of the submitted absentee ballots of that group that had been rejected. This data is not available partially due to confidentiality concerns. The same problem exists for example if we want to estimate the share of a particular ethnic group that voted for a specific candidate (without survey data).
 
@@ -17,13 +43,11 @@ $$
 $$
 If $x_2 = 1$ (share Latinx), $x_1 = 0$ (share non-Latinx), and $x_1 + x_2 = 1$, then $\beta_2$ has to be $0.75$ and we would estimate the probability that a Latinx individual requests an absentee ballot as $75\%$. If the county is not homogenous, there is more uncertainty regarding the probability to vote as the 75% could be composed of some mixture of Latinx and non-Latinx individuals. But with a large number of data points, this can be relatively precisely estimated.
 
-## Rejection rates
+### Rejection rates
 
 Estimating rejection rates is a bit more complex because it requires estimating rates at which absentee ballots are requested, rates at which they are submitted, and then the rates at which they are rejected. Our beliefs about them are necessarily interdependent. The model I use estimates the probabilities for each ethnic group for each state. Different states have different electoral rules e.g. requiring a witness signature on the absentee ballot or not. They are therefore not entirely comparable.
 
 ### Preliminary results
-
-
 
 There are different ways to look at the data.
 
