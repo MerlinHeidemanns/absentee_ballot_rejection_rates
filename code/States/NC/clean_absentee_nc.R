@@ -46,19 +46,18 @@ ggplot(data = joint %>%
   labs(x = "Share submitted", y = "Share rejected", title = paste0("Absentee ballots in NC. Date: ", Sys.Date()))
 ggsave("plots/States/NC/Shares_rejected_submitted.jpg")
 
-# rates by age
+# rates by age ----------------------------------------------------------------
+## all
 df_collapse <- df %>%
   mutate(outcome = abs(status - 1)) %>%
   group_by(age) %>%
   summarize(ballots = n(),
             rejected = sum(outcome)) %>%
   mutate(age = factor(age, levels = sort(unique(age))))
-  
 wi_prior <- normal(-1, 0.5)
 fit <- 
   stan_glmer(cbind(rejected, ballots) ~ (1 | age), data = df_collapse, 
              family = binomial("logit"), prior = wi_prior)
-
 draws <- fit %>%
   spread_draws(b[t,g], `(Intercept)`) %>%
   dplyr::select(g, b, `(Intercept)`) %>%
@@ -77,4 +76,52 @@ ggplot(data = draws) +
        y = "Rejection probability", 
        title = paste0("Absentee ballots in NC. Date: ", Sys.Date())) + 
   theme_bw()
+
+## white v non-white
+df_collapse <- df %>%
+  filter(age <= 95) %>%
+  mutate(outcome = abs(status - 1),
+         white = ifelse(ethn == "white",1,0)) %>%
+  group_by(age, white) %>%
+  summarize(ballots = n(),
+            rejected = sum(outcome)) %>% 
+  mutate(age = factor(age, levels = sort(unique(age))))
+model <- rstan::stan_model("code/States/NC/age_rw_prior.stan")
+submitted <- cbind(df_collapse %>% filter(white == 0) %>% pull(ballots),
+      df_collapse %>% filter(white == 1) %>% pull(ballots))
+rejected <- cbind(df_collapse %>% filter(white == 0) %>% pull(rejected),
+                   df_collapse %>% filter(white == 1) %>% pull(rejected))
+data <- list(
+  N = as.integer(nrow(rejected)),
+  submitted = submitted,
+  rejected = rejected
+)
+fit <- rstan::sampling(model, data = data, chains = 4, cores = 4)
+# plot
+theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]])
+means <- apply(theta, MARGIN = c(2,3), mean)
+sds   <- apply(theta, MARGIN = c(2,3), sd)
+df_plot <- data.frame(age = rep(seq(18, 95),2),
+                 ethn = c(rep("non-white", 96 - 18), rep("white", 96 - 18)),
+                 mean = c(means[,1], means[,2]),
+                 sd = c(sds[,1], sds[,2]))
+ggplot(data = df, aes(x = age, y = mean, color = ethn)) + 
+  geom_point() + 
+  geom_errorbar(aes(x = age, ymax = mean + 2/3 * sd, ymin =  mean - 2/3 * sd, color = ethn), width = 0) + 
+  theme_bw() +
+  labs(x = "Age", 
+       y = "Rejection probability", 
+       caption = "50% certainty intervals", 
+       title = "Estimated rejection rates by ethnicity and age in NC so far",
+       color = "Race")
+ggsave("plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg")
+
+
+
+
+
+
+
+
+
 
