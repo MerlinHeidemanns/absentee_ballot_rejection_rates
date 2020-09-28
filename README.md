@@ -2,6 +2,11 @@
 
 Although absentee voting/vote-by-mail (VBM) may be a safe alternative to voting in person, it might disenfranchise underserved communities. A missing witness signature or a non-official envelope might disqualify a ballot. And rejection rates can vary widely across socio-demographic groups. A [study](https://electionscience.clas.ufl.edu/files/2020/04/Baringer_Herron_Smith_VBM_FL.pdf) of voting lists in Florida found that the absentee ballot rejection rates for minorities are twice as large as for white Americans (approximately 2% vs 1%). Other studies from elections in [LA](https://www.sciencedirect.com/science/article/pii/S0261379408000796) and [Georgia](https://electionscience.clas.ufl.edu/files/2020/05/GA_Venmo.pdf)  found higher rejection rates from first-time and non-white voters.
 
+## Updates 
+
+* *Monday, September 28th, 2020:* I took the number of absentee ballots requested so far from the NYT website and am using them instead of assuming a 70% absentee request rate across all states.
+* *Sunday, September 27th, 2020*: I went through the EAVS data and where possible fixed the data for ballots transmitted, submitted, counted, and rejected. There are still counties that are getting dropped due to missing or clearly false data but their number is in the high single/very low double digits.
+
 ## Approach
 
 To estimate a rejection rate of an ethnic group we would look at the share of the submitted absentee ballots of that group that had been rejected. This data is not available partially due to confidentiality concerns. The same problem exists for example if we want to estimate the share of a particular ethnic group that voted for a specific candidate (without survey data).
@@ -24,11 +29,11 @@ There are different ways to look at the data.
 
 First, we can look at the shares of each ethnic group among voters, those who requested an absentee ballot, those who submitted an absentee ballot, and those who had their absentee ballot rejected. Minorities are overrepresented among rejected ballots.
 
-![m11_2020-09-02_group_shares_turnout_by_state](plots/model_state_level_2020-09-21_group_shares_turnout_by_state.jpeg)
+![m11_2020-09-02_group_shares_turnout_by_state](plots/model_state_level_allVBM_none2020-09-28_group_shares_turnout_by_state.jpeg)
 
-The last graph makes a projection expected number of rejected absentee ballots at the national levels by ethnic group assuming that 70% of the population will request an absentee ballot. This assumes that the number of voters is the same as in 2016 as is state-level ethnic group level turnout.
+The last graph makes a projection expected number of rejected absentee ballots at the national levels by ethnic group assuming the same turnout as in 2016 and considering the states that have sent absentee ballots to every registered voter as well as the preliminary absentee voter data published by the NYT. For the remaining states I assume that 70% of the voter population from 2016 will request an absentee ballot. It excludes CT (data errors), AK (no estimates), and DC (no estimates).
 
-![m11_2020-09-02_n_rejected_national_turnout_by_state](plots/model_state_level_2020-09-21_n_rejected_national_turnout_by_state.jpeg)
+![m11_2020-09-02_n_rejected_national_turnout_by_state](plots/model_state_level_allVBM_none2020-09-28_n_rejected_national_turnout_by_state.jpeg)
 
 [^1]: There are two alternative assumptions both of which are sufficient to interpret the parameters as individual-level probabilities. Either, first, the probability is independent of the geographic unit the individual lives in. Or, second, the individual probability is on average unaffected by the ethnic composition in the geographic unit or any other factor.
 
