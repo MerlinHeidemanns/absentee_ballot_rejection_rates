@@ -14,8 +14,8 @@ transformed parameters {
   for (n in 2:N) theta[n] = theta[n - 1] + raw_theta[n] .* sigma;
 }
 model {
-  target += normal_lpdf(mu | 0, 2);
-  target += normal_lpdf(sigma | 0, 2);
+  target += normal_lpdf(mu | 0, 1);
+  target += normal_lpdf(sigma | 0, 1);
   target += std_normal_lpdf(to_vector(raw_theta));
   target += binomial_logit_lpmf(rejected[, 1] | submitted[, 1], theta[, 1]);
   target += binomial_logit_lpmf(rejected[, 2] | submitted[, 2], theta[, 2]);

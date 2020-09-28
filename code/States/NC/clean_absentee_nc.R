@@ -96,7 +96,7 @@ data <- list(
   submitted = submitted,
   rejected = rejected
 )
-fit <- rstan::sampling(model, data = data, chains = 4, cores = 4)
+fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 2000, iter = 3000)
 # plot
 theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]])
 means <- apply(theta, MARGIN = c(2,3), mean)
@@ -105,7 +105,7 @@ df_plot <- data.frame(age = rep(seq(18, 95),2),
                  ethn = c(rep("non-white", 96 - 18), rep("white", 96 - 18)),
                  mean = c(means[,1], means[,2]),
                  sd = c(sds[,1], sds[,2]))
-ggplot(data = df, aes(x = age, y = mean, color = ethn)) + 
+ggplot(data = df_plot, aes(x = age, y = mean, color = ethn)) + 
   geom_point() + 
   geom_errorbar(aes(x = age, ymax = mean + 2/3 * sd, ymin =  mean - 2/3 * sd, color = ethn), width = 0) + 
   theme_bw() +
@@ -114,7 +114,7 @@ ggplot(data = df, aes(x = age, y = mean, color = ethn)) +
        caption = "50% certainty intervals", 
        title = "Estimated rejection rates by ethnicity and age in NC so far",
        color = "Race")
-ggsave("plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg")
+ggsave("plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg", width = 9, height = 5)
 
 
 
