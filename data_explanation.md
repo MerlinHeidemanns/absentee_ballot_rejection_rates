@@ -34,9 +34,20 @@ State-specific
   * F1f (voted at an early voting place) == F1b (Voted at a physical polling place on Election Day)
 * AZ
   * F1d (voted using domestic absentee ballot) == C1b (submitted for counting)
-  * 
-
-
+  * weird pattern for Yuma county where unaccounted = submitted - counted while everywhere else submitted - counted = rejected
+AL
+  * Subtract B8a (UOVCA submitted and counted) from C4a (counted) per the comments in the data
+  * still negative values on rejected
+RI
+  * fine
+FL
+  * fine
+WV
+  * transmitted, submitted seem fine
+  * counted often bigger than submitted even after subtracting UOCAVA voters
+  * computed counted as submitted - rejected
+IL
+  * missing values for one county should have been 0
 
 Transmitted
 * subtract ballots that were undeliverable, because they could have never gotten submitted
