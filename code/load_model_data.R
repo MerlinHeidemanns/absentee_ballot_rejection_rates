@@ -22,15 +22,11 @@ turn_numeric <- function(df, pos){
 }
 # data
 df <- read.csv("data/eavs_merged_w_acs_2013_2018.csv") %>%
-  mutate(pr1 = ifelse(State %in% c("OR", "WA", "CO", "UT", "HI"), 1, pr1),
-         pr1 = as.numeric(as.character(pr1)),
-         pr1 = ifelse(pr1 >1 | pr1 < 0, NA, pr1),
+  mutate(pr1 = as.numeric(as.character(pr1)),
          pr2 = as.numeric(as.character(pr2)),
-         pr2 = ifelse(pr1 >1 | pr1 < 0, NA, pr2),
          pr3 = as.numeric(as.character(pr3)),
-         pr3 = ifelse(pr1 >1 | pr1 < 0, NA, pr3),
          rejected = as.numeric(as.character(rejected)),
-         mail_ballots_submitted = as.numeric(as.character(mail_ballots_submitted)),
+         submitted = as.numeric(as.character(submitted)),
          transmitted = as.numeric(as.character(transmitted)),
          white_count = as.numeric(as.character(white_count)),
          black_count = as.numeric(as.character(black_count)),
@@ -51,14 +47,14 @@ df_turnout <- read.csv("data/turnout_by_state_wabh.csv") %>%
   )
 df <- df %>% left_join(df_turnout, by = "State") %>% mutate(
   region_5 = ifelse(State %in% west,      "west",
-                    ifelse(State %in% midwest,   "midwest",
-                           ifelse(State %in% south,     "south",
-                                  ifelse(State %in% northeast, "northeast",
-                                         "pacfic"))))
+             ifelse(State %in% midwest,   "midwest",
+             ifelse(State %in% south,     "south",
+             ifelse(State %in% northeast, "northeast",
+                                          "pacfic"))))
 )
 
 df_subset <- df %>% 
-  filter(!State %in% c("CT", "HI")) %>%
+  filter(!State %in% c("CT")) %>%
   filter(!is.na(white_percentage),
          !is.na(black_percentage),
          !is.na(hispanic_percentage),
@@ -71,7 +67,7 @@ df_subset <- df %>%
          !is.na(pr2),
          !is.na(pr3),
          !is.na(rejected),
-         !is.na(mail_ballots_submitted)) %>% 
+         !is.na(submitted)) %>% 
   mutate(other_percentage = native_percentage + pac_percentage,
          voters_white = white * white_count,
          voters_black = black * black_count,
@@ -89,28 +85,24 @@ df_subset <- df %>%
            voters_asian/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
          other_voteshare = 
            voters_other/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
-         voters_white = floor(white_voteshare * total_votes_2016),
-         voters_black = floor(black_voteshare * total_votes_2016),
-         voters_hispanic = floor(hispanic_voteshare * total_votes_2016),
-         voters_asian = floor(asian_voteshare * total_votes_2016),
-         voters_other = floor(other_voteshare * total_votes_2016),
-         voters_count = total_votes_2016,
+         voters_white = floor(white_voteshare * population),
+         voters_black = floor(black_voteshare * population),
+         voters_hispanic = floor(hispanic_voteshare * population),
+         voters_asian = floor(asian_voteshare * population),
+         voters_other = floor(other_voteshare * population),
+         voters_count = population,
          pr1 = transmitted/(voters_white + voters_black + voters_hispanic + voters_asian + voters_other),
          pr1 = ifelse(State %in% c("OR", "WA", "CO", "UT", "HI"), 1, pr1),
-         pr2 = mail_ballots_submitted/transmitted,
-         pr3 = rejected/mail_ballots_submitted) %>%
-  filter((pr1 >= 0) & (pr1 <= 1)) 
+         pr2 = ifelse(State %in% c("OR"), 1, pr2)
+        ) %>%
+  filter(pr1 >= 0, pr1 <= 1,
+         pr2 >= 0, pr2 <= 1,) 
 cat("pr1 out of bounds", sum(as.integer(df_subset$pr1 > 1 | df_subset$pr1 < 0)), "\n",
     "pr2 out of bounds", sum(as.integer(df_subset$pr2 > 1 | df_subset$pr2 < 0)), "\n",
     "pr3 out of bounds", sum(as.integer(df_subset$pr3 > 1 | df_subset$pr3 < 0))
 )
 print(df_subset[sample(1:nrow(df_subset)), 
-                c("JurisdictionName","voting_age","voters_white", "voters_black", 
-                  "voters_hispanic", "voters_other", "voters_asian")])
-print(df_subset[sample(1:nrow(df_subset)), 
                 c("JurisdictionName","voting_age","white_voteshare", "black_voteshare", 
                   "hispanic_voteshare", "asian_voteshare", "other_voteshare")])
-print(df_subset[sample(1:nrow(df_subset)), 
-                c("JurisdictionName","voting_age","white_count", "black_count", 
-                  "hispanic_count", "asian_count", "other_count")])
+
 

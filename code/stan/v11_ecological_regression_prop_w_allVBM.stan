@@ -43,9 +43,11 @@ model {
     beta2[ ,g] ~ normal(beta_mean[g, 2], beta_sigma[g, 2]);
     beta3[ ,g] ~ normal(beta_mean[g, 3], beta_sigma[g, 3]);
   }
-  to_vector(beta_mean) ~ normal(0, 0.5);
-  to_vector(beta_sigma) ~ normal(0, 0.25);
-  sigma ~ normal(0, 1);
+  to_vector(beta_mean[,1]) ~ normal(0, 0.5);
+  to_vector(beta_mean[,3]) ~ normal(1, 0.2);
+  to_vector(beta_mean[,3]) ~ normal(0, 0.2);
+  to_vector(beta_sigma) ~ normal(0, 0.1);
+  sigma ~ normal(0, 0.1);
   ybar1 ~ normal(rows_dot_product(xbar1, beta1[s1]), sigma[1]);
   ybar2 ~ normal(rows_dot_product(xba2_added, beta2[s2]), sigma[2]);
   ybar3 ~ normal(rows_dot_product(append_row(xbar3, xbar3_add), beta3[s3]), sigma[3]);
