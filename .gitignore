@@ -3,4 +3,5 @@
 .RData
 .Ruserdata
 .txt
-.Rds
+*.Rds
+*.stan
