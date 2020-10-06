@@ -19,13 +19,23 @@ In an ideal world rejection rates would be constant and plotting shares among su
 
 ### Over age
 
-An interesting thing is that the data has a lot of personal characteristics one of which being age. So what about age over race. The values are now estimated with a binomial model and a random walk prior going from 18 to 95 for regularization for whites and non-whites. Sadly, no partial pooling but there is so much data and information is still being shared. A second version could use a Gaussian process maybe. Anyway, here estimates over age for white against non-white, female against male, and their interactions.
+An interesting thing is that the data has a lot of personal characteristics one of which being age. So what about age over race. The values are now estimated with a binomial model and a random walk prior going from 18 to 95 for regularization for whites and non-whites. Sadly, no partial pooling but there is so much data and information is still being shared. A second version could use a Gaussian process maybe. Anyway, here estimates over age for white against non-white, female against male, low income vs high income, and their interactions. Data from [here][https://www.ncsbe.gov/results-data/absentee-data].
 
 ![](plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg)
 
-![](plots/States/NC/Rejected_rates_by_age_gender_NC.jpeg)
+
 
 ![](plots/States/NC/Rejected_rates_by_age_gender_race_NC.jpeg)
+
+![Rejected_rates_by_age_gender_race_income_NC](plots/States/NC/Rejected_rates_by_age_gender_race_income_NC.jpeg)
+
+## Maine
+
+Maine offers less interesting data but we can disaggregate by party id to get rejection rates. Here, just with partial pooling (essentially irrelevant given the amount of data) and a binomial logit model. Data from [here][https://www.maine.gov/sos/cec/elec/data/index.html].
+
+![Rejected_rates_by_party_id_primaries](plots/States/ME/Rejected_rates_by_party_id_primaries.jpeg)
+
+
 
 
 

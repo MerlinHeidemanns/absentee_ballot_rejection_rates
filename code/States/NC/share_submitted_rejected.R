@@ -3,15 +3,15 @@ source("code/States/NC/clean_absentee_nc.R")
 submitted <- df %>% 
   group_by(ethn) %>%
   summarize(submitted = n()/nrow(df),
-            n = n()) %>%
+            n_submitted = n()) %>%
   ungroup()
 rejected <- df %>%
   filter(status == 0) %>%
   group_by(ethn) %>%
-  summarize(n = n()) %>% 
+  summarize(n_rejected = n()) %>% 
   ungroup() %>%
   mutate(rejected = n/sum(n)) %>%
-  dplyr::select(ethn, rejected)
+  dplyr::select(ethn, rejected, n_rejected)
 joint <- submitted %>% 
   left_join(rejected, by = 'ethn') %>%
   mutate(rejected = ifelse(is.na(rejected), 0, rejected))

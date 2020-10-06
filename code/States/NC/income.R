@@ -17,7 +17,9 @@ data <- list(
   N = as.integer(nrow(rejected)),
   G = 2, 
   submitted = submitted,
-  rejected = rejected
+  rejected = rejected,
+  prior_mu = 1,
+  prior_sigma = 1
 )
 fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 2000, iter = 3000)
 # plot
