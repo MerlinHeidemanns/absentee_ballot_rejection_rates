@@ -5,7 +5,7 @@ Although absentee voting/vote-by-mail (VBM) may be a safe alternative to voting 
 ## Updates 
 
 * *Monday, September 28th, 2020:* I took the number of absentee ballots requested so far from the NYT website and am using them instead of assuming a 70% absentee request rate across all states.
-* *Sunday, September 27th, 2020*: I went through the EAVS data and where possible fixed the data for ballots transmitted, submitted, counted, and rejected. There are still counties that are getting dropped due to missing or clearly false data but their number is in the high single/very low double digits.
+
 
 ## North Carolina
 
