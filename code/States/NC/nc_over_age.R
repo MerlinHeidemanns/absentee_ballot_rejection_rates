@@ -1,4 +1,9 @@
 source("code/States/NC/clean_absentee_nc.R")
+
+caption_text = "Line: Median
+                  Inner band: 50%
+                  Outer band: 80%"
+y_text = "Rejection probability (in %)"
 # rates by age ----------------------------------------------------------------
 ## all
 df_collapse <- df %>%
@@ -26,7 +31,7 @@ ggplot(data = draws) +
   geom_errorbar(aes(x = g, ymax = mean + 2/3 * sd, ymin = mean - 2/3 * sd), width = 0) +
   scale_x_continuous(name="Age", limits=c(18, 106)) + 
   labs(caption = "Intervals are 50% certainty intervals.", 
-       y = "Rejection probability", 
+       y = y_text, 
        title = paste0("Absentee ballots in NC. Date: ", Sys.Date())) + 
   theme_bw()
 
@@ -76,14 +81,12 @@ ggplot(data = df_plot,
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Line: Median
-                  Inner band: 50%
-                  Outer band: 80%", 
-       title = "Estimated rejection rates by race, and age in NC so far",
+       y = y_text, 
+       caption = caption_text, 
+       title = paste("Estimated rejection rates by race, and age in NC for", year),
        color = "Race", 
        fill = "Race")
-ggsave("plots/States/NC/Rejected_rates_by_age_ethnicity_NC.jpeg", width = 9, height = 5)
+ggsave(paste0("plots/States/NC/Rejected_rates_by_age_ethnicity_NC_", year ,".jpeg"), width = 9, height = 5)
 
 
 # male v female -------------
@@ -123,7 +126,7 @@ ggplot(data = df_plot, aes(x = age, y = mean, color = ethn)) +
   geom_errorbar(aes(x = age, ymax = mean + 2/3 * sd, ymin =  mean - 2/3 * sd, color = ethn), width = 0) + 
   theme_bw() +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
+       y = y_text, 
        caption = "50% certainty intervals", 
        title = "Estimated rejection rates by ethnicity and age in NC so far",
        color = "Gender")
@@ -186,10 +189,8 @@ ggplot(data = df_plot,
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Line: Median
-                  Inner band: 50%
-                  Outer band: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by income, race, and age in NC so far",
        color = "Race", 
        fill = "Race") +
@@ -258,7 +259,7 @@ ggplot(data = df_plot, aes(x = age, y = median, color = ethn)) +
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
+       y = y_text, 
        caption = "Thick line: 50%
                   Thin line: 80%", 
        title = "Estimated rejection rates by ethnicity, party id, and age in NC so far",
@@ -334,9 +335,8 @@ ggplot(data = df_plot %>%
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Thick line: 50%
-                  Thin line: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by income, race, and age in NC so far",
        color = "Race") +
   facet_wrap(~income)
@@ -401,10 +401,8 @@ ggplot(data = df_plot %>%
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Line: Median
-                  Inner band: 50%
-                  Outer band: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by income, race, and age in NC so far",
        color = "Race", 
        fill = "Race") +
@@ -460,19 +458,12 @@ data <- list(
 fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 2000, iter = 4000)
 # plot
 theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]]) * 100
-medians <- apply(theta, MARGIN = c(2,3), median)
-q25   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.25)))
-q75   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.75)))
-q10   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.10)))
-q90   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.9)))
-df_plot <- data.frame(age = rep(seq(18, 95),6),
-                      pid =  rep(c(rep("Democratic", dim(medians)[1]), rep("Not aligned", dim(medians)[1]), rep("Republican", dim(medians)[1])), 2),
-                      income =  c(rep("Below median income county", dim(medians)[1] * 3), rep("Above median income county", dim(medians)[1] * 3)),
-                      median = c(medians[,1], medians[,2], medians[,3], medians[,4], medians[,5], medians[,6]),
-                      q25 = c(q25[,1], q25[,2],q25[,3], q25[,4], q25[,5], q25[,6]),
-                      q75 = c(q75[,1], q75[,2],q75[,3], q75[,4], q75[,5], q75[,6]),
-                      q10 = c(q10[,1], q10[,2],q10[,3], q10[,4], q10[,5], q10[,6]),
-                      q90 = c(q90[,1], q90[,2],q90[,3], q90[,4], q90[,5], q90[,6]))
+df_plot <- extract_quantiles_mean(theta, c(2,3), 90, 
+                                  c("Democratic", "Not aligned", "Republican"),
+                                  c("Below median income county",
+                                    "Above median income county"),
+                                  c(),
+                                  c("pid", "income"))
 ggplot(data = df_plot %>% 
          mutate(income = factor(income, levels = c("Below median income county", "Above median income county")),
                 pid = factor(pid, levels = c("Democratic", "Not aligned", "Republican"))), 
@@ -483,9 +474,8 @@ ggplot(data = df_plot %>%
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Thick line: 50%
-                  Thin line: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by income, party id, and age in NC so far",
        color = "Income") +
   facet_wrap(~pid) + 
@@ -532,29 +522,12 @@ data <- list(
 fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 2000, iter = 4000)
 # plot
 theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]]) * 100
-medians <- apply(theta, MARGIN = c(2,3), median)
-q25   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.25)))
-q75   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.75)))
-q10   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.10)))
-q90   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.9)))
-df_plot <- data.frame(age = rep(seq(18, 90),5),
-                      ethn =  rep(c(rep("white", dim(medians)[1]), 
-                                rep("black", dim(medians)[1]), 
-                                rep("hispanic", dim(medians)[1]),
-                                rep("asian", dim(medians)[1]),
-                                rep("other", dim(medians)[1])), 2),
-                      income =  c(rep("Below median income county", dim(medians)[1] * 5), 
-                                  rep("Above median income county", dim(medians)[1] * 5)),
-                      median = c(medians[,1], medians[,2], medians[,3], medians[,4], medians[,5], 
-                                 medians[,6], medians[,7], medians[,8], medians[,9], medians[,10]),
-                      q25 = c(q25[,1], q25[,2],q25[,3], q25[,4], q25[,5],
-                              q25[,6], q25[,7],q25[,8], q25[,9], q25[,10]),
-                      q75 = c(q75[,1], q75[,2],q75[,3], q75[,4], q75[,5],
-                              q75[,6], q75[,7],q75[,8], q75[,9], q75[,10]),
-                      q10 = c(q10[,1], q10[,2],q10[,3], q10[,4], q10[,5],
-                              q10[,6], q10[,7],q10[,8], q10[,9], q10[,10]),
-                      q90 = c(q90[,1], q90[,2],q90[,3], q90[,4], q90[,5],
-                              q90[,6], q90[,7],q90[,8], q90[,9], q90[,10]))
+df_plot <- extract_quantiles_mean(theta, c(2,3), 90, 
+                                  c("white", "black", "hispanic", "asian", "other"),
+                                  c("Below median income county",
+                                    "Above median income county"),
+                                  c(),
+                                  c("ethn", "income"))
 ggplot(data = df_plot %>% 
          mutate(ethn = factor(ethn, levels = c("white", "black", "hispanic", "asian", "other")),
                 income = factor(income, levels = c("Below median income county", "Above median income county"))), 
@@ -565,9 +538,8 @@ ggplot(data = df_plot %>%
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Thick line: 50%
-                  Thin line: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by income, race, and age in NC so far",
        color = "Income") + 
   theme(legend.position = "bottom") + 
@@ -576,6 +548,7 @@ ggsave("plots/States/NC/Rejected_rates_by_age_race_income_NC.jpeg", width = 9, h
 
 # plot
 theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]]) * 100
+
 medians <- apply(theta, MARGIN = c(2,3), median)
 q25   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.25)))
 q75   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.75)))
@@ -636,42 +609,24 @@ data <- list(
 fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 2000, iter = 4000)
 # plot
 theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]]) * 100
-medians <- apply(theta, MARGIN = c(2,3), median)
-q25   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.25)))
-q75   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.75)))
-q10   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.10)))
-q90   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.9)))
-df_plot <- data.frame(age = rep(seq(18, 90),5),
-                      ethn =  rep(c(rep("white", dim(medians)[1]), 
-                                    rep("black", dim(medians)[1]), 
-                                    rep("hispanic", dim(medians)[1]),
-                                    rep("asian", dim(medians)[1]),
-                                    rep("other", dim(medians)[1])), 2),
-                      income =  c(rep("Female", dim(medians)[1] * 5), 
-                                  rep("Male", dim(medians)[1] * 5)),
-                      median = c(medians[,1], medians[,2], medians[,3], medians[,4], medians[,5], 
-                                 medians[,6], medians[,7], medians[,8], medians[,9], medians[,10]),
-                      q25 = c(q25[,1], q25[,2],q25[,3], q25[,4], q25[,5],
-                              q25[,6], q25[,7],q25[,8], q25[,9], q25[,10]),
-                      q75 = c(q75[,1], q75[,2],q75[,3], q75[,4], q75[,5],
-                              q75[,6], q75[,7],q75[,8], q75[,9], q75[,10]),
-                      q10 = c(q10[,1], q10[,2],q10[,3], q10[,4], q10[,5],
-                              q10[,6], q10[,7],q10[,8], q10[,9], q10[,10]),
-                      q90 = c(q90[,1], q90[,2],q90[,3], q90[,4], q90[,5],
-                              q90[,6], q90[,7],q90[,8], q90[,9], q90[,10]))
+df_plot <- extract_quantiles_mean(theta, c(2,3), 90, 
+                                             c("white", "black", "hispanic", "asian", "other"),
+                                             c("Female",
+                                               "Male"),
+                                             c(),
+                                             c("ethn", "gender"))
 ggplot(data = df_plot %>% 
          mutate(ethn = factor(ethn, levels = c("white", "black", "hispanic", "asian", "other")),
-                gender = factor(income, levels = c("Female", "Male"))), 
-       aes(x = age, y = median, color = income)) + 
+                gender = factor(gender, levels = c("Female", "Male"))), 
+       aes(x = age, y = median, color = gender)) + 
   geom_point(size = 0.8) + 
   geom_errorbar(aes(x = age, ymin = q25, ymax =  q75, color = gender), width = 0, size = 0.75) + 
   geom_errorbar(aes(x = age, ymin = q10, ymax = q90, color = gender), width = 0, size = 0.25) + 
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Thick line: 50%
-                  Thin line: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by income, race, and age in NC so far",
        color = "Gender") + 
   theme(legend.position = "bottom") + 
@@ -680,15 +635,7 @@ ggsave("plots/States/NC/Rejected_rates_by_age_race_gender_NC.jpeg", width = 12, 
 
 
 ### male v race v income ------
-
-
-
-
 med_income = median(unique(df$median_household_income))
-
-#FFFFMMMM gender
-#00110011 white
-#01010101 income
 df_collapse <- df %>%
   filter(age <= 95,
          gender != "U",
@@ -717,28 +664,15 @@ data <- list(
   prior_sigma = 0.5
 )
 fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 4000, iter = 6000)
-# plot
+# prepare
 theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]]) * 100
-medians <- apply(theta, MARGIN = c(2,3), median)
-q25   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.25)))
-q75   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.75)))
-q10   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.10)))
-q90   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.90)))
-df_plot <- data.frame(age = rep(seq(18, 95),8),
-                      gender = c(rep("female", dim(medians)[1] * 4), rep("male", dim(medians)[1]  * 4)),
-                      ethn = rep(c(rep("Black", dim(medians)[1] * 2), rep("white", dim(medians)[1] * 2)), 2),
-                      income =  rep(c(rep("Below median income county", dim(medians)[1]), 
-                                  rep("Above median income county", dim(medians)[1])), 4),
-                      median = c(medians[,1], medians[,2], medians[,3], medians[,4],
-                                 medians[,5], medians[,6], medians[,7], medians[,8]),
-                      q25 = c(q25[,1], q25[,2],q25[,3], q25[,4],
-                              q25[,5], q25[,6],q25[,7], q25[,8]),
-                      q75 = c(q75[,1], q75[,2],q75[,3], q75[,4],
-                              q75[,5], q75[,6],q75[,7], q75[,8]),
-                      q025 = c(q10[,1], q10[,2],q10[,3], q10[,4],
-                               q10[,5], q10[,6],q10[,7], q10[,8]),
-                      q975 = c(q90[,1], q90[,2],q90[,3], q90[,4],
-                               q90[,5], q90[,6],q90[,7], q90[,8]))
+df_plot <- extract_quantiles_mean(theta, c(2,3), 95, 
+                                  c("female", "male"), 
+                                  c("Black", "white"), 
+                                  c("Below median income county",
+                                    "Above median income county"),
+                                  c("gender", "ethn", "income"))
+# plot
 ggplot(data = df_plot %>%
          mutate(income = factor(income, levels = c("Below median income county", "Above median income county")))
        , aes(x = age, y = median, color = ethn)) + 
@@ -748,10 +682,8 @@ ggplot(data = df_plot %>%
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Line: Median
-                  Inner band: 50%
-                  Outer band: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by ethnicity, gender, income, and age in NC so far",
        color = "Race",
        fill = "Race") +
@@ -799,35 +731,15 @@ data <- list(
   prior_sigma = 0.5
 )
 fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 4000, iter = 8000)
-# plot
+# prepare
 theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]]) * 100
-medians <- apply(theta, MARGIN = c(2,3), median)
-q25   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.25)))
-q75   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.75)))
-q10   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.10)))
-q90   <- apply(theta, MARGIN = c(2,3), function(x) quantile(x, c(0.90)))
-df_plot <- data.frame(age = rep(seq(18, 95),12),
-                      pid = c(rep("Democrat", dim(medians)[1] * 4), 
-                                 rep("Unaffiliated", dim(medians)[1]  * 4),
-                                 rep("Republican", dim(medians)[1]  * 4)),
-                      ethn = rep(c(rep("Black", dim(medians)[1] * 2), rep("white", dim(medians)[1] * 2)), 3),
-                      income =  rep(c(rep("Below median income county", dim(medians)[1]), 
-                                      rep("Above median income county", dim(medians)[1])), 6),
-                      median = c(medians[,1], medians[,2], medians[,3], medians[,4],
-                                 medians[,5], medians[,6], medians[,7], medians[,8],
-                                 medians[,9], medians[,10], medians[,11], medians[,12]),
-                      q25 = c(q25[,1], q25[,2],q25[,3], q25[,4],
-                              q25[,5], q25[,6],q25[,7], q25[,8],
-                              q25[,9], q25[,10],q25[,11], q25[,12]),
-                      q75 = c(q75[,1], q75[,2],q75[,3], q75[,4],
-                              q75[,5], q75[,6],q75[,7], q75[,8],
-                              q75[,9], q75[,10],q75[,11], q75[,12]),
-                      q025 = c(q10[,1], q10[,2],q10[,3], q10[,4],
-                               q10[,5], q10[,6],q10[,7], q10[,8],
-                               q10[,9], q10[,10],q10[,11], q10[,12]),
-                      q975 = c(q90[,1], q90[,2],q90[,3], q90[,4],
-                               q90[,5], q90[,6],q90[,7], q90[,8],
-                               q90[,9], q90[,10],q90[,11], q90[,12]))
+df_plot <- extract_quantiles_mean(theta, c(2,3), 95, 
+                                  c("Democrat", "Unaffiliated", "Republican"), 
+                                  c("Black", "white"), 
+                                  c("Below median income county",
+                                    "Above median income county"),
+                                  c("pid", "ethn", "income"))
+# plot
 ggplot(data = df_plot %>%
          mutate(income = factor(income, levels = c("Below median income county", "Above median income county")),
                 pid = factor(pid, levels = c("Democrat", "Unaffiliated", "Republican")))
@@ -838,10 +750,8 @@ ggplot(data = df_plot %>%
   theme_bw() +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Line: Median
-                  Inner band: 50%
-                  Outer band: 80%", 
+       y = y_text, 
+       caption = caption_text, 
        title = "Estimated rejection rates by ethnicity, party id, income, and age in NC so far",
        color = "Race",
        fill = "Race") +
@@ -859,10 +769,8 @@ ggplot(data = df_plot %>%
   theme(legend.position = "bottom") +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   labs(x = "Age", 
-       y = "Rejection probability (in %)", 
-       caption = "Line: Median
-                  Inner band: 50%
-                  Outer band: 80%", 
+       y = y_text , 
+       caption = caption_text, 
        title = "Estimated rejection rates by ethnicity, party id, income, and age in NC so far",
        color = "Income",
        fill = "Income") +
