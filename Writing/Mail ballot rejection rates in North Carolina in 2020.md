@@ -2,7 +2,7 @@
 
 ##### Merlin Heidemanns, PhD Student at Columbia University
 
-Due to the ongoing COVID-19 pandemic, record numbers of voters will vote by mail in the General Election in 2020. Voting by mail is generally a safe way from the perspective of the electoral system. Yet, additional safety measures lead to greater rejection rates than voting in person, for example due to a missing witness signature or a signature mismatch. While intended to keep voting by mail safe, many of these measures result in **substantially higher rejection rates of mail ballots for minority groups** and those who are otherwise socio-economically disadvantaged. While white Americans in North Carolina face rejection rates between 1 and 3%, **rejection rates for Black citizens can range as high as 10%** for those in lower income areas. 
+Due to the ongoing COVID-19 pandemic, record numbers of voters will vote by mail in the General Election in 2020. Voting by mail is generally a safe way from the perspective of the electoral system. Yet, additional safety measures lead to greater rejection rates than voting in person, for example due to a missing witness signature or a signature mismatch. While intended to keep voting by mail safe, many of these measures result in **substantially higher rejection rates of mail ballots for minority groups** and those who are otherwise socio-economically disadvantaged. While white Americans in North Carolina face rejection rates between 1 and 3%, **rejection rates for Black citizens can range as high as 10%** for those in lower income areas. This is most likely not driven by first time voters.
 
 ## Data and Estimation
 
@@ -57,6 +57,22 @@ The estimates suggest that Black registered Republicans in lower income areas co
 ![Rejected_rates_by_age_pid_income_race_NC](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_pid_income_race_NC.jpeg)
 
 Americans living in richer counties have lower rejection rates but they remain substantially higher for those who are Black.
+
+### First time mail voters and ethnicity
+
+A common perception is that high mail ballot rejection rates are driven by first time mail voters. Here I define somebody as having voted by mail before if they have voted by mail in the last two general elections (2016, 2018). This could be improved by considering the primaries in 2020 as well.
+
+At this point, substantial overlap does not indicate that first time mail voters generally drive higher rejection rates. Instead, we only see a difference for middle age Black voters but in the opposite direction, i.e. lower rejection rates for those who haven't voted by mail before. This may be the case due to a lower degree of representativeness among Black voters who have voted by mail in previous years compared to this year.
+
+![Rejected_rates_by_age_ethnicity_first_time_NC](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_ethnicity_first_time_NC.jpeg)
+
+### First time mail voters, ethnicity, and income
+
+If we disaggregate further we can see some suggestive differences between first time mail voters and those who have voted by mail before for younger and middle age Black voters in poorer areas. This support the previos graph. There again do not appear to be substantial differences for white mail voters.
+
+![Rejected_rates_by_age_ethnicity_first_time_income_NC](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_ethnicity_first_time_income_NC.jpeg)
+
+
 
 ## Conclusion
 
