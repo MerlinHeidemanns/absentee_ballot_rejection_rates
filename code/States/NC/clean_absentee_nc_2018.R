@@ -5,33 +5,28 @@ library(tidybayes)
 library(boot)
 library(ggmap)
 # data
-df <- read_csv(file = "data/GE2020/NC/absentee_2020_10_08.csv")
+df <- read_csv(file = "data/GE2020/NC/absentee_2018_w_ethnicity.csv")
 # wrangle
 df <- df %>%
   filter(ballot_rtn_status != "RETURNED UNDELIVERABLE",
          ballot_rtn_status != "PENDING",
-         ballot_rtn_status != "SPOILED"
-         ) %>%
+         ballot_rtn_status != "SPOILED",
+         ballot_req_type == "MAIL",
+         ballot_rtn_status != "") %>%
   mutate(ethn = 
            ifelse(ethnicity == "HISPANIC or LATINO", "hispanic",
            ifelse(race == "WHITE", "white",
            ifelse(race == "BLACK or AFRICAN AMERICAN", "black",
            ifelse(race == "ASIAN", "asian",
            ifelse(race == "INDIAN AMERICAN or ALASKA NATIVE", "native",
-           ifelse(race == "NATIVE HAWAIIAN or PACIFIC ISLANDER", "pac", 
-                  "other"
-                  )))))),
-         #kind = gsub("[^A-Z]", "", application_num),
+           ifelse(race == "NATIVE HAWAIIAN or PACIFIC ISLANDER", "pac", "other"
+                                              )))))),
          status = ifelse(ballot_rtn_status == "ACCEPTED", 1, 0),
          ballot_requested = as.Date(ballot_req_dt, "%m/%d/%y"),
          ballot_sent_out = as.Date(ballot_send_dt, "%m/%d/%y"),
          ballot_sent_back = as.Date(ballot_rtn_dt, "%m/%d/%y"),
-         ballot_sent_out_sent_back = as.integer(difftime(ballot_sent_back,ballot_sent_out, units = "days"))) #%>%
-  #filter(kind == "CIV")
-df_rejected <- df %>% 
-  filter(ballot_rtn_status != "ACCEPTED") %>%
-  mutate(request_cure = ifelse(ballot_rtn_status == "ACCEPTED - CURED" | 
-                               ballot_rtn_status == "PENDING CURE", 1, 0))
+         ballot_sent_out_sent_back = as.integer(difftime(ballot_sent_back,ballot_sent_out, units = "days"))) 
+
 
 df_acs <- read_csv("data/acs_econ_13_18.csv") %>% 
   filter(grepl("North\\sCarolina", jurisdiction)) %>%
@@ -39,6 +34,3 @@ df_acs <- read_csv("data/acs_econ_13_18.csv") %>%
          jurisdiction = gsub("\\sCOUNTY.+", "", jurisdiction))
 ## income
 df <- merge(df, df_acs, by.x = "county_desc", by.y = "jurisdiction") 
-
-
-
