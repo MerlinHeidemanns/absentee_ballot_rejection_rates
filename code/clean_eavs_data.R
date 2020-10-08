@@ -68,6 +68,22 @@ eavs <- merge(df_c, df_f, by = c("State", "FIPSCode"), all.x = TRUE) %>%
     FIPSCode = as.integer(as.numeric(as.character(FIPSCode))/1e5)
   )
 
+eavs %>% 
+  mutate(outcome = ifelse(is.na(C4a) | is.na(F1d) | is.na(F1f), "NA", 
+                          ifelse(C4a > F1d + F1f, "bigger", 
+                          ifelse(C4a == F1d + F1f, "equal",
+                                 "smaller")))) %>%
+  group_by(State, outcome) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  group_by(State) %>%
+  mutate(share = n/sum(n)) %>%
+  select(State, outcome, n, share) %>% 
+  filter(outcome == "bigger" | outcome == "equal") %>%
+  ungroup() %>%
+  summarize(N = sum(n))
+         
+
 # Missing data
 cat("Percentage missing rejected", mean(!is.na(eavs$C4b)), "\n")
 cat("Percentage missing submitted", mean(!is.na(eavs$C1b)), "\n")
