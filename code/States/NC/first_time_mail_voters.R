@@ -76,6 +76,14 @@ df_2020 <- df_2020 %>%
          voted_by_mail_2018 = ifelse(is.na(voted_by_mail_2018), 0, voted_by_mail_2018),
          voted_by_mail_last_four_years = ifelse(voted_by_mail_2016 == 1 | voted_by_mail_2018 == 1, 1, 0),
          )
+df_acs <- read_csv("data/acs_econ_13_18.csv") %>% 
+  filter(grepl("North\\sCarolina", jurisdiction)) %>%
+  mutate(jurisdiction = toupper(jurisdiction),
+         jurisdiction = gsub("\\sCOUNTY.+", "", jurisdiction))
+## income
+df <- merge(df, df_acs, by.x = "county_desc", by.y = "jurisdiction") 
+
+# save
 write_csv(df_2020, path = "data/GE2020/NC/absentee_2020_10_05_w_2016_18.csv")
 
 
