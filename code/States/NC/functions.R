@@ -1,6 +1,6 @@
 # functions
 # extract quantiles and medians
-extract_quantiles_mean <- function(draws, dimensions, age_upper, 
+extract_quantiles_mean <- function(draws, dimensions, lower_bound, upper_bound, 
                                    cat1_factors, cat2_factors, cat3_factors,
                                    cat_names){
   median <- apply(draws, MARGIN = dimensions, median)
@@ -20,12 +20,12 @@ extract_quantiles_mean <- function(draws, dimensions, age_upper,
         q75 = stack(q75),
         q10 = stack(q10),
         q90 = stack(q90),
-        age = rep(seq(18, age_upper), factors),
+        age = rep(seq(lower_bound, upper_bound), factors),
         cat1 = rep(cat1_factors, rep(len_age * factors/len_cat1, len_cat1)),
-        cat2 = rep(c(rep(cat2_factors, rep(len_age * factors/(len_cat1 * len_cat3), len_cat2))), len_cat1),
+        cat2 = rep(c(rep(cat2_factors, rep(len_age * factors/(len_cat1 * len_cat2), len_cat2))), len_cat1),
         cat3 = rep(c(rep(cat3_factors, rep(len_age, len_cat3))), factors/len_cat3)
     )    
-  } else if (len_cat3 == 0){
+  } else if (len_cat2 != 0){
     factors = len_cat1 * len_cat2
     return_df <- data.frame(
       q50 = stack(median),
@@ -33,10 +33,21 @@ extract_quantiles_mean <- function(draws, dimensions, age_upper,
       q75 = stack(q75),
       q10 = stack(q10),
       q90 = stack(q90),
-      age = rep(seq(18, age_upper), factors),
-      cat1 = rep(c(rep(cat1_factors, rep(len_age, len_cat1))), len_cat2),
-      cat2 = rep(cat2_factors, rep(len_age * len_cat1, len_cat2))
+      age = rep(seq(lower_bound, upper_bound), factors),
+      cat1 = rep(cat1_factors, rep(len_age * len_cat2, len_cat1)),
+      cat2 = rep(c(rep(cat2_factors, rep(len_age, len_cat2))), len_cat1)
     ) 
+  } else if (len_cat1 != 0){
+    factors = len_cat1
+    return_df <- data.frame(
+      q50 = stack(median),
+      q25 = stack(q25),
+      q75 = stack(q75),
+      q10 = stack(q10),
+      q90 = stack(q90),
+      age = rep(seq(lower_bound, upper_bound), factors),
+      cat1 = rep(cat1_factors, rep(len_age, len_cat1))
+    )   
   }
   colnames(return_df) <- c("median", "q25", "q75", "q10", "q90", 
                            "age", cat_names)
