@@ -12,7 +12,10 @@ df <- df %>%
          ballot_rtn_status != "PENDING",
          ballot_rtn_status != "SPOILED"
          ) %>%
-  mutate(ethn = 
+  mutate(pid = ifelse(voter_party_code == "REP", 2, 
+               ifelse(voter_party_code == "UNA", 1, 
+               ifelse(voter_party_code == "DEM", 0, NA))),
+    ethn = 
            ifelse(ethnicity == "HISPANIC or LATINO", "hispanic",
            ifelse(race == "WHITE", "white",
            ifelse(race == "BLACK or AFRICAN AMERICAN", "black",
@@ -37,6 +40,11 @@ df_acs <- read_csv("data/acs_econ_13_18.csv") %>%
   filter(grepl("North\\sCarolina", jurisdiction)) %>%
   mutate(jurisdiction = toupper(jurisdiction),
          jurisdiction = gsub("\\sCOUNTY.+", "", jurisdiction))
+
+
+df_zip_income <- read_csv("data/GE2020/NC/zipcode_median_income.csv")
+df <- merge(df, df_zip_income, by.x = "voter_zip", by.y = "zipcode")
+
 ## income
 df <- merge(df, df_acs, by.x = "county_desc", by.y = "jurisdiction") 
 

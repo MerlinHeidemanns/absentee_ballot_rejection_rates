@@ -8,12 +8,10 @@ library(ggmap)
 df <- read_csv(file = "data/GE2020/NC/absentee_2018_w_ethnicity.csv")
 # wrangle
 df <- df %>%
-  filter(ballot_rtn_status != "RETURNED UNDELIVERABLE",
-         ballot_rtn_status != "PENDING",
-         ballot_rtn_status != "SPOILED",
-         ballot_req_type == "MAIL",
-         ballot_rtn_status != "") %>%
-  mutate(ethn = 
+  mutate(pid = ifelse(voter_party_code == "REP", 2, 
+                      ifelse(voter_party_code == "UNA", 1, 
+                             ifelse(voter_party_code == "DEM", 0, NA))),
+         ethn = 
            ifelse(ethnicity == "HISPANIC or LATINO", "hispanic",
            ifelse(race == "WHITE", "white",
            ifelse(race == "BLACK or AFRICAN AMERICAN", "black",
@@ -27,7 +25,10 @@ df <- df %>%
          ballot_sent_back = as.Date(ballot_rtn_dt, "%m/%d/%y"),
          ballot_sent_out_sent_back = as.integer(difftime(ballot_sent_back,ballot_sent_out, units = "days"))) 
 
-
+# zip income
+df_zip_income <- read_csv("data/GE2020/NC/zipcode_median_income.csv")
+df <- merge(df, df_zip_income, by.x = "voter_zip", by.y = "zipcode")
+# county income
 df_acs <- read_csv("data/acs_econ_13_18.csv") %>% 
   filter(grepl("North\\sCarolina", jurisdiction)) %>%
   mutate(jurisdiction = toupper(jurisdiction),
