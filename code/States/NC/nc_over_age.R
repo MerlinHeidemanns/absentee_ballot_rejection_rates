@@ -691,11 +691,6 @@ ggplot(data = df_plot %>%
 ggsave("plots/States/NC/Rejected_rates_by_age_gender_race_income_NC.jpeg", width = 9, height = 5)
 
 ### pid, race, income -------
-
-
-
-
-
 med_income = median(unique(df$median_household_income))
 
 #DDDDIIIIRRRR pid
@@ -776,6 +771,98 @@ ggplot(data = df_plot %>%
        fill = "Income") +
   facet_grid(pid~ethn, scales = "free_y")
 ggsave("plots/States/NC/Rejected_rates_by_age_pid_income_race_NC.jpeg", width = 9, height = 5)
+
+
+### pid, race, income -------
+
+df <- df %>% 
+  mutate(zip_income_cat = ifelse(zip_median_income <= 30000, 1, 
+                          ifelse(zip_median_income > 30000 & zip_median_income <= 40000, 2,
+                          ifelse(zip_median_income > 40000 & zip_median_income <= 50000, 3, 
+                          ifelse(zip_median_income > 50000 & zip_median_income <= 60000, 4,
+                          ifelse(zip_median_income > 60000, 5, NA))))))     
+
+df_collapse <- df %>%
+  filter(age <= 95,
+         !is.na(pid),
+         !is.na(zip_income_cat),
+         ethn %in% c("white", "black")) %>%
+  mutate(outcome = abs(status - 1),
+         white = ifelse(ethn == "white",1,0)) %>%
+  arrange(pid, white, zip_income_cat) %>%
+  mutate(pid_white_income = group_indices(., paste(pid, white, zip_income_cat, sep = "_"))) %>% 
+  group_by(age, pid_white_income, pid, white, zip_income_cat) %>%
+  summarize(ballots = n(),
+            rejected = sum(outcome)) %>% 
+  mutate(age = as.integer(age)) %>%
+  arrange(pid_white_income, age)
+model <- rstan::stan_model("code/States/NC/age_rw_prior_mat.stan")
+data <- list(
+  N = nrow(df_collapse),
+  A = length(unique(df_collapse$age)),
+  G = 30, 
+  submitted = df_collapse %>% pull(ballots),
+  rejected = df_collapse %>% pull(rejected),
+  g = df_collapse %>% pull(pid_white_income),
+  a = df_collapse %>% pull(age) - 17,
+  prior_mu = 1,
+  prior_sigma = 1
+)
+fit <- rstan::sampling(model, data = data, chains = 4, cores = 4, warmup = 4000, iter = 6000)
+# prepare
+theta <- inv.logit(rstan::extract(fit, pars = "theta")[[1]]) * 100
+# 0000000000 1111111111 2222222222
+# 0000011111 0000011111 0000011111
+# 0123401234 0123401234 0123401234
+df_plot <- extract_quantiles_mean(theta, c(2,3), 18, 95, 
+                                  c("DEM", "UNA", "REP"), 
+                                  c("Black", "white"), 
+                                  c("Below 30000",
+                                    "30000-40000",
+                                    "40000-50000",
+                                    "50000-60000",
+                                    "Over 60000"),
+                                  c("pid", "ethn", "income"))
+# plot
+ggplot(data = df_plot %>%
+         mutate(income = factor(income, levels = c("Below 30000", "30000-40000", "40000-50000", "50000-60000", "Over 60000")),
+                pid = factor(pid, levels = c("DEM", "UNA", "REP")))
+       , aes(x = age, y = median, color = ethn)) + 
+  geom_line(size = 1) + 
+  geom_ribbon(aes(x = age, ymax = q25, ymin =  q75, ethn = ethn, fill = ethn), alpha = 0.5) + 
+  geom_ribbon(aes(x = age, ymax = q10, ymin = q90, ethn = ethn, fill = ethn), alpha = 0.25) + 
+  theme_bw() +
+  scale_x_continuous(breaks = seq(20, 90, 10)) +
+  labs(x = "Age", 
+       y = y_text, 
+       caption = caption_text, 
+       title = "Estimated rejection rates by ethnicity income, pid, and age in NC",
+       color = "Race",
+       fill = "Race") +
+  facet_grid(pid~income, scales = "free_y")
+ggsave("plots/States/NC/Rejected_rates_by_age_race_zip_income_pid.jpeg", width = 9, height = 5)
+# plot
+ggplot(data = df_plot %>%
+         mutate(income = factor(income, levels = c("20000-35000", "35000-50000", "50000-65000", "65000-80000")),
+                year = factor(year, levels = c("2016", "2020")))
+       , aes(x = age, y = median, color = ethn)) + 
+  geom_line(size = 1) + 
+  geom_ribbon(aes(x = age, ymax = q25, ymin =  q75, color = ethn, fill = ethn), alpha = 0.5) + 
+  geom_ribbon(aes(x = age, ymax = q10, ymin = q90, color = ethn, fill = ethn), alpha = 0.25) + 
+  theme_bw() +
+  scale_x_continuous(breaks = seq(20, 90, 10)) +
+  labs(x = "Age", 
+       y = y_text, 
+       caption = caption_text, 
+       title = "Estimated rejection rates by ethnicity income, and age comparing 2016 and 2020 in NC",
+       color = "Race",
+       fill = "Race") +
+  facet_grid(year~income)
+
+
+
+
+
 
 
 

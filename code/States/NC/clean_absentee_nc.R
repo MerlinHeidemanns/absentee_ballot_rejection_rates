@@ -5,7 +5,7 @@ library(tidybayes)
 library(boot)
 library(ggmap)
 # data
-df <- read_csv(file = "data/GE2020/NC/absentee_2020_10_08.csv")
+df <- read_csv(file = "data/GE2020/NC/absentee_2020_10_13.csv")
 # wrangle
 df <- df %>%
   filter(ballot_rtn_status != "RETURNED UNDELIVERABLE",
@@ -31,10 +31,6 @@ df <- df %>%
          ballot_sent_back = as.Date(ballot_rtn_dt, "%m/%d/%y"),
          ballot_sent_out_sent_back = as.integer(difftime(ballot_sent_back,ballot_sent_out, units = "days"))) #%>%
   #filter(kind == "CIV")
-df_rejected <- df %>% 
-  filter(ballot_rtn_status != "ACCEPTED") %>%
-  mutate(request_cure = ifelse(ballot_rtn_status == "ACCEPTED - CURED" | 
-                               ballot_rtn_status == "PENDING CURE", 1, 0))
 
 df_acs <- read_csv("data/acs_econ_13_18.csv") %>% 
   filter(grepl("North\\sCarolina", jurisdiction)) %>%
@@ -48,5 +44,9 @@ df <- merge(df, df_zip_income, by.x = "voter_zip", by.y = "zipcode")
 ## income
 df <- merge(df, df_acs, by.x = "county_desc", by.y = "jurisdiction") 
 
+df_cured <- df %>% 
+  filter(ballot_rtn_status == "ACCEPTED - CURED" |
+           ballot_rtn_status == "PENDING CURE") %>%
+  mutate(cured = ifelse(ballot_rtn_status == "ACCEPTED - CURED", 1, 0))
 
 

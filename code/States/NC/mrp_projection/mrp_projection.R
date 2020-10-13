@@ -27,6 +27,8 @@ table(df_mrp$mrp_ethn, df_mrp$mrp_income_cat, df_mrp$mrp_pid, df_mrp$mrp_gender)
 fit <- rstanarm::stan_glmer(cbind(rejected, ballots - rejected) ~ 
                               factor(mrp_ethn) * factor(mrp_age) +
                               factor(mrp_ethn) * factor(mrp_income_cat) +
+                              factor(mrp_income_cat) * factor(mrp_age) + 
+                              factor(mrp_ethn) * factor(mrp_gender) + 
                               (1 | mrp_ethn) + (1 | mrp_gender) + (1 | mrp_pid) + (1 | mrp_age) + 
                               (1 | mrp_income_cat),
                             data = df_mrp, prior = normal(-1, 1), family = binomial(link = "logit"),
