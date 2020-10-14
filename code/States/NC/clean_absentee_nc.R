@@ -5,7 +5,7 @@ library(tidybayes)
 library(boot)
 library(ggmap)
 # data
-df <- read_csv(file = "data/GE2020/NC/absentee_2020_10_13.csv")
+df <- read_csv(file = "data/GE2020/NC/absentee_2020_10_14.csv")
 # wrangle
 df <- df %>%
   filter(ballot_rtn_status != "RETURNED UNDELIVERABLE",
@@ -48,5 +48,10 @@ df_cured <- df %>%
   filter(ballot_rtn_status == "ACCEPTED - CURED" |
            ballot_rtn_status == "PENDING CURE") %>%
   mutate(cured = ifelse(ballot_rtn_status == "ACCEPTED - CURED", 1, 0))
+
+
+df %>%
+  group_by(ethn) %>%
+  summarize(mean = mean(ballot_sent_out_sent_back))
 
 
