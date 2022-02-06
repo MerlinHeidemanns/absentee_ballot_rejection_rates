@@ -2,14 +2,15 @@
 
 Although absentee voting/vote-by-mail (VBM) may be a safe alternative to voting in person, it might disenfranchise underserved communities. A missing witness signature or a non-official envelope might disqualify a ballot. And rejection rates can vary widely across socio-demographic groups. A [study](https://electionscience.clas.ufl.edu/files/2020/04/Baringer_Herron_Smith_VBM_FL.pdf) of voting lists in Florida found that the absentee ballot rejection rates for minorities are twice as large as for white Americans (approximately 2% vs 1%). Other studies from elections in [LA](https://www.sciencedirect.com/science/article/pii/S0261379408000796) and [Georgia](https://electionscience.clas.ufl.edu/files/2020/05/GA_Venmo.pdf)  found higher rejection rates from first-time and non-white voters.
 
-## Updates 
+## Code
 
-* *Monday, September 28th, 2020:* I took the number of absentee ballots requested so far from the NYT website and am using them instead of assuming a 70% absentee request rate across all states.
+The repo contains code for a multilevel ecological regression model, i.e. estimating the share rejected conditional on our estimates for the share requested and submitted and models to estimate the relationship between individual characteristics and the probability that an absentee ballot is rejected. The repo differentiates between the national case and the state level estimates. Functions are found in a separate folder. 
 
+## Data and results
 
 ## North Carolina
 
-North Carolina for some reason continuously publishes data on absentee ballots and their status at the individual level with a surprising amount of personal information. So we can actually do a lot with this.
+North Carolina publishes data on absentee ballots and their status at the individual level with a substantial degree of personal information. So we can actually do a lot with this.
 
 ### Raw shares
 

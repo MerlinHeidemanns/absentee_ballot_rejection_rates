@@ -2,7 +2,7 @@
 
 ##### Merlin Heidemanns, PhD Student at Columbia University
 
-Due to the ongoing COVID-19 pandemic, record numbers of voters will vote by mail in the General Election in 2020. Voting by mail is generally a safe way from the perspective of the electoral system. Yet, additional safety measures lead to greater rejection rates than voting in person, for example due to a missing witness signature or a signature mismatch. While intended to keep voting by mail safe, many of these measures result in **substantially higher rejection rates of mail ballots for minority groups** and those who are otherwise socio-economically disadvantaged. While white Americans in North Carolina face rejection rates between 1 and 3%, **rejection rates for Black citizens can range as high as 10%** for those in lower income areas. This is most likely not driven by first time voters.
+Due to the ongoing COVID-19 pandemic, record numbers of voters will vote by mail in the General Election in 2020. Voting by mail is generally a safe way from the perspective of the electoral system. Yet, additional safety measures lead to greater rejection rates than voting in person, for example due to a missing witness signature or a signature mismatch. While intended to keep voting by mail safe, many of these measures result in **substantially higher rejection rates of mail ballots for minority groups** and those who are otherwise socio-economically disadvantaged. While white Americans in North Carolina face rejection rates between 1 and 3%, **rejection rates for Black citizens can range as high as 9%** for those in lower income areas. This is most likely not driven by first time voters.
 
 ## Data and Estimation
 
@@ -72,7 +72,17 @@ If we disaggregate further we can see some suggestive differences between first 
 
 ![Rejected_rates_by_age_ethnicity_first_time_income_NC](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_ethnicity_first_time_income_NC.jpeg)
 
+### 2016 vs 2020
 
+Below are rejection rates for absentee ballots for 2016 and 2020 showing that rates this year are lower for white voters but largely the same for Black voters.
+
+![Rejected_rates_by_age_race_zip_income_2016v2020_NC](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Rejected_rates_by_age_race_zip_income_2016v2020_NC.jpeg)
+
+### Cure probability
+
+North Carolina is one of the few states allowing voters to cure their ballot if they have made a mistake. White voters are far more likely to cure their ballot compared to other racial and ethnic groups.
+
+![Cure_probability](/Users/merlinheidemanns/Documents/Research/research_self/absentee_ballot_rejection_rates/plots/States/NC/Cure_probability.jpeg)
 
 ## Conclusion
 
